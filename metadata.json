@@ -1,0 +1,6 @@
+{
+  "name": "MarkGrade: Elegant Assessment System",
+  "description": "洗練されたモダンなテスト採点・分析統計システム。素早いデータロード、観点別評価の集計、美しい個人レポートPDF生成を提供します。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
