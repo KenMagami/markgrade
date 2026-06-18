@@ -1135,14 +1135,14 @@ export const SetupForm: React.FC<SetupFormProps> = ({
               <div 
                 onClick={() => setSubStep(2)} 
                 className={`p-3 rounded-xl border transition-all duration-250 cursor-pointer ${
-                  subStep === 2 
-                    ? "bg-white border-indigo-500 shadow-sm ring-2 ring-indigo-55/30" 
+                  (subStep === 2 || subStep === 3) 
+                    ? "bg-white border-blue-500 shadow-sm ring-2 ring-blue-500/20" 
                     : "bg-slate-50 border-slate-100 hover:border-slate-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
-                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-xs ${subStep === 2 ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-xs ${(subStep === 2 || subStep === 3) ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}>
                       2
                     </div>
                     <span className="font-extrabold text-slate-700 text-xs">② 大問の範囲設定</span>
@@ -1150,7 +1150,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                   <span className="text-[10px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-md text-center">{rangeSlots.length} グループ</span>
                 </div>
 
-                {subStep === 2 && (
+                {(subStep === 2 || subStep === 3) && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-3 animate-[fadeIn_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-center bg-slate-50/50 p-1 rounded-md">
                       <span className="text-[10px] text-slate-400 font-bold ml-1">大問スコープ</span>
@@ -1176,7 +1176,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                               },
                             ])
                           }
-                          className="text-indigo-600 hover:scale-105 font-extrabold text-[10px] flex items-center"
+                          className="text-blue-600 hover:scale-105 font-extrabold text-[10px] flex items-center"
                         >
                           <i className="fa-solid fa-circle-plus mr-0.5"></i> 追加
                         </button>
@@ -1192,17 +1192,17 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                         {rangeSlots.map((slot, idx) => (
                           <div
                             key={idx}
-                            className={`flex items-center space-x-1 p-1 bg-white border rounded-lg transition-all ${slot.selected ? "border-indigo-200 bg-indigo-50/10" : "border-slate-100"}`}
+                            className={`flex items-center space-x-1 p-1 bg-white border rounded-lg transition-all ${slot.selected ? "border-blue-200 bg-blue-50/10" : "border-slate-100"}`}
                           >
                             <input
                               type="checkbox"
                               checked={slot.selected}
                               onChange={(e) => {
-                                const n = [...rangeSlots];
-                                n[idx].selected = e.target.checked;
-                                setRangeSlots(n);
+                                  const n = [...rangeSlots];
+                                  n[idx].selected = e.target.checked;
+                                  setRangeSlots(n);
                               }}
-                              className="w-3.5 h-3.5 accent-indigo-600 rounded-sm"
+                              className="w-3.5 h-3.5 accent-blue-600 rounded-sm"
                             />
 
                             <span className="text-[9px] text-slate-400 font-bold ml-1 shrink-0">
@@ -1216,7 +1216,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                                 n[idx].group = e.target.value;
                                 setRangeSlots(n);
                               }}
-                              className="bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-xs w-6 text-indigo-600 font-bold text-center outline-none shrink-0"
+                              className="bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-xs w-6 text-blue-600 font-bold text-center outline-none shrink-0"
                             />
 
                             <input
@@ -1225,7 +1225,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                               onChange={(e) => {
                                 const n = [...rangeSlots];
                                 n[idx].start = parseInt(e.target.value) || 1;
-                                setRangeSlots(n);
+                                  setRangeSlots(n);
                               }}
                               className="bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-xs w-8 text-slate-600 text-center outline-none"
                             />
@@ -1254,27 +1254,9 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                       </div>
                     )}
                     
-                    <span className="text-[9px] text-slate-400 block leading-normal">
-                      ※ 選択(チェック)された大問に対して、ステップ３で配点や評価観点を一括適用できます。
+                    <span className="text-[9px] text-slate-405 block leading-normal font-medium">
+                      ※ 選択（チェック）した大問グループに、すぐ下のステップ③で配点や観点を一括で流し込めます。
                     </span>
-
-                    <div className="flex space-x-2 pt-1 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setSubStep(1)}
-                        className="flex-1 bg-slate-50 border border-slate-200 text-slate-500 py-1 rounded text-[10px] font-bold hover:bg-slate-100 transition-colors"
-                      >
-                        戻る
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSubStep(3)}
-                        className="flex-1 bg-indigo-600 text-white py-1 rounded text-[10px] font-bold shadow-xs hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-1"
-                      >
-                        <span>配点設定へ</span>
-                        <i className="fa-solid fa-arrow-right text-[10px]"></i>
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1283,22 +1265,22 @@ export const SetupForm: React.FC<SetupFormProps> = ({
               <div 
                 onClick={() => setSubStep(3)} 
                 className={`p-3 rounded-xl border transition-all duration-250 cursor-pointer ${
-                  subStep === 3 
-                    ? "bg-white border-indigo-500 shadow-sm ring-2 ring-indigo-55/30" 
+                  (subStep === 2 || subStep === 3) 
+                    ? "bg-white border-blue-500 shadow-sm ring-2 ring-blue-500/20" 
                     : "bg-slate-50 border-slate-100 hover:border-slate-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
-                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-xs ${subStep === 3 ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-xs ${(subStep === 2 || subStep === 3) ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}>
                       3
                     </div>
                     <span className="font-extrabold text-slate-700 text-xs">③ 大問の詳細設定</span>
                   </div>
-                  <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-md text-center">{selectedCount} 件選択中</span>
+                  <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-2 py-0.5 rounded-md text-center">{selectedCount} 件選択中</span>
                 </div>
 
-                {subStep === 3 && (
+                {(subStep === 2 || subStep === 3) && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-3 animate-[fadeIn_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
                     {/* Points quick faders */}
                     <div className="flex flex-col space-y-1.5">
@@ -1311,7 +1293,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             key={v}
                             type="button"
                             onClick={() => setActiveValue(v)}
-                            className={`py-1 text-xs font-bold rounded border transition-colors ${activeValue === v ? "bg-indigo-600 border-indigo-600 text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}
+                            className={`py-1 text-xs font-bold rounded border transition-colors ${activeValue === v ? "bg-blue-600 border-blue-600 text-white" : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}
                           >
                             {v}
                           </button>
@@ -1345,7 +1327,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                               key={k}
                               type="button"
                               onClick={() => setActiveComp(k)}
-                              className={`py-1 text-[10px] font-medium rounded border text-left px-2 truncate transition-colors ${activeComp === k ? "bg-indigo-600 border-indigo-600 text-white" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100"}`}
+                              className={`py-1 text-[10px] font-medium rounded border text-left px-2 truncate transition-colors ${activeComp === k ? "bg-blue-600 border-blue-600 text-white" : "bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100"}`}
                             >
                               {COMPETENCY_LABELS[k]}
                             </button>
@@ -1362,7 +1344,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                         onClick={() =>
                           applyValueToSelectedGroups("point", activeValue)
                         }
-                        className="w-full py-1.5 font-bold rounded-lg text-xs bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        className="w-full py-1.5 font-bold rounded-lg text-xs bg-blue-600 text-white shadow-xs hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
                         配点の一括適用 ({selectedCount}大問)
                       </button>
@@ -1372,7 +1354,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                         onClick={() =>
                           applyValueToSelectedGroups("competency", activeComp)
                         }
-                        className="w-full py-1.5 font-bold rounded-lg text-xs bg-indigo-600 text-white shadow-xs hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        className="w-full py-1.5 font-bold rounded-lg text-xs bg-blue-600 text-white shadow-xs hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
                         観点の一括適用 ({selectedCount}大問)
                       </button>
@@ -1387,7 +1369,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                     <div className="flex space-x-2 pt-1 border-t border-slate-100">
                       <button
                         type="button"
-                        onClick={() => setSubStep(2)}
+                        onClick={() => setSubStep(1)}
                         className="flex-1 bg-slate-50 border border-slate-200 text-slate-500 py-1 rounded text-[10px] font-bold hover:bg-slate-100 transition-colors"
                       >
                         戻る
@@ -1395,7 +1377,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                       <button
                         type="button"
                         onClick={() => setSubStep(4)}
-                        className="flex-1 bg-indigo-600 text-white py-1 rounded text-[10px] font-bold shadow-xs hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-1"
+                        className="flex-1 bg-blue-600 text-white py-1 rounded text-[10px] font-bold shadow-xs hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1"
                       >
                         <span>模範解答へ</span>
                         <i className="fa-solid fa-arrow-right text-[10px]"></i>
@@ -1410,13 +1392,13 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                 onClick={() => setSubStep(4)} 
                 className={`p-3 rounded-xl border transition-all duration-250 cursor-pointer ${
                   subStep === 4 
-                    ? "bg-white border-indigo-500 shadow-sm ring-2 ring-indigo-55/30" 
+                    ? "bg-white border-blue-500 shadow-sm ring-2 ring-blue-500/20" 
                     : "bg-slate-50 border-slate-100 hover:border-slate-200"
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2.5">
-                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-xs ${subStep === 4 ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"}`}>
+                    <div className={`w-5.5 h-5.5 rounded-full flex items-center justify-center font-bold text-xs ${subStep === 4 ? "bg-blue-600 text-white" : "bg-slate-200 text-slate-500"}`}>
                       4
                     </div>
                     <span className="font-extrabold text-slate-700 text-xs">④ 模範解答の一括入力</span>
@@ -1435,7 +1417,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                       onChange={(e) => setBulkInput(e.target.value)}
                       placeholder="例：アイウエオ アエイウオ あいうえお"
                       rows={3}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none focus:bg-white focus:border-indigo-500 transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs font-mono outline-none focus:bg-white focus:border-blue-500 transition-colors"
                     />
 
                     <button
@@ -1454,7 +1436,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                         const updatedNums = Array.from({ length: Math.min(chars.length, questions.length) }, (_, i) => i + 1);
                         flashEffect(updatedNums);
                       }}
-                      className="w-full bg-indigo-650 hover:bg-indigo-720 text-white font-bold text-xs py-2 rounded-lg shadow-xs transition-colors flex items-center justify-center space-x-1.5"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2.5 rounded-lg shadow-md shadow-blue-500/10 transition-all flex items-center justify-center space-x-1.5 active:scale-98"
                     >
                       <i className="fa-solid fa-paste"></i>
                       <span>正解を一括適用する</span>
@@ -1488,10 +1470,10 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                 {questions.map((q) => (
                   <div
                     key={q.number}
-                    className={`bg-white border rounded-lg shadow-xs overflow-hidden flex flex-col hover:border-indigo-300 transition-all ${flashingQs.has(q.number) ? "animate-flash" : "border-slate-200/80"}`}
+                    className={`bg-white border rounded-lg shadow-xs overflow-hidden flex flex-col hover:border-blue-300 transition-all ${flashingQs.has(q.number) ? "animate-flash" : "border-slate-200/80"}`}
                   >
                     <div className="bg-slate-50/70 p-2 flex justify-between items-center border-b border-slate-100">
-                      <span className="display-font font-bold text-xs text-indigo-600">
+                      <span className="display-font font-bold text-xs text-blue-600">
                         Q{q.number.toString().padStart(2, "0")}
                       </span>
                       <div className="flex items-center space-x-1">
@@ -1525,7 +1507,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             // Wait a tiny bit for React state update before highlighting/focusing the next one
                             setTimeout(() => {
                               const nextInput = document.getElementById(
-                                `correct-answer-${q.number + 1}`,
+                                `correct-answer-${q.number + 1}`
                               ) as HTMLInputElement | null;
                               if (nextInput) {
                                 nextInput.focus();
@@ -1535,7 +1517,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                           }
                         }}
                         placeholder="正解"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center font-bold text-indigo-600 outline-none text-base focus:bg-white focus:border-indigo-400 transition-all focus:ring-2 focus:ring-indigo-100"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-center font-bold text-blue-600 outline-none text-base focus:bg-white focus:border-blue-400 transition-all focus:ring-2 focus:ring-blue-100"
                       />
                       <select
                         value={q.competency}
