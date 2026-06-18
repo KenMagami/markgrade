@@ -48,7 +48,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
   const [bulkInput, setBulkInput] = useState("");
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>("idle");
   const [pastRosters, setPastRosters] = useState<
-    { name: string; students: Student[] }[]
+    { name: string; students: Student[]; type: "last" | "archive"; id: string }[]
   >([]);
 
   const [flashingQs, setFlashingQs] = useState<Set<number>>(new Set());
@@ -229,17 +229,28 @@ export const SetupForm: React.FC<SetupFormProps> = ({
   };
 
   useEffect(() => {
-    const list: { name: string; students: Student[] }[] = [];
+    const list: { name: string; students: Student[]; type: "last" | "archive"; id: string }[] = [];
+    let deletedRosters: string[] = [];
+    try {
+      const deletedRaw = localStorage.getItem("grader_deleted_rosters");
+      if (deletedRaw) {
+        deletedRosters = JSON.parse(deletedRaw) as string[];
+      }
+    } catch (e) {
+      console.error(e);
+    }
 
     // 1. Check dedicated last student list
     try {
       const lastSaved = localStorage.getItem("grader_last_student_list");
-      if (lastSaved) {
+      if (lastSaved && !deletedRosters.includes("last_student_list")) {
         const parsed = JSON.parse(lastSaved) as Student[];
         if (parsed && parsed.length > 0) {
           list.push({
             name: `前回アップロード・登録した名簿 (${parsed.length}名)`,
             students: parsed,
+            type: "last",
+            id: "last_student_list",
           });
         }
       }
@@ -254,6 +265,11 @@ export const SetupForm: React.FC<SetupFormProps> = ({
         const parsedArchives = JSON.parse(savedArchives) as any[];
         parsedArchives.forEach((archive, idx) => {
           if (archive.students && archive.students.length > 0) {
+            const rosterId = archive.id || `archive_${idx}`;
+            if (deletedRosters.includes(rosterId)) {
+              return;
+            }
+
             const name = `${archive.name || "セッション " + (idx + 1)} の名簿 (${archive.students.length}名)`;
             const isDuplicate = list.some(
               (item) =>
@@ -264,6 +280,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
               list.push({
                 name,
                 students: archive.students,
+                type: "archive",
+                id: rosterId,
               });
             }
           }
@@ -275,6 +293,29 @@ export const SetupForm: React.FC<SetupFormProps> = ({
 
     setPastRosters(list);
   }, []);
+
+  const handleDeleteRoster = (rosterId: string, rosterType: "last" | "archive") => {
+    if (!window.confirm("この過去の名簿を削除（非表示）にしますか？")) {
+      return;
+    }
+
+    if (rosterType === "last") {
+      localStorage.removeItem("grader_last_student_list");
+    } else {
+      try {
+        const deletedRaw = localStorage.getItem("grader_deleted_rosters");
+        const deletedList: string[] = deletedRaw ? JSON.parse(deletedRaw) : [];
+        if (!deletedList.includes(rosterId)) {
+          deletedList.push(rosterId);
+          localStorage.setItem("grader_deleted_rosters", JSON.stringify(deletedList));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    setPastRosters((prev) => prev.filter((r) => r.id !== rosterId));
+  };
 
   const flashEffect = (numbers: number[]) => {
     setFlashingQs(new Set(numbers));
@@ -311,9 +352,22 @@ export const SetupForm: React.FC<SetupFormProps> = ({
           "grader_last_student_list",
           JSON.stringify(parsed),
         );
+        try {
+          const deletedRaw = localStorage.getItem("grader_deleted_rosters");
+          if (deletedRaw) {
+            let deletedList: string[] = JSON.parse(deletedRaw);
+            if (deletedList.includes("last_student_list")) {
+              deletedList = deletedList.filter((id) => id !== "last_student_list");
+              localStorage.setItem("grader_deleted_rosters", JSON.stringify(deletedList));
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
         setPastRosters((prev) => {
           const filtered = prev.filter(
             (p) =>
+              p.id !== "last_student_list" &&
               !p.name.includes("前回アップロード") &&
               !p.name.includes("前回登録"),
           );
@@ -321,6 +375,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
             {
               name: `前回アップロード・登録した名簿 (${parsed.length}名)`,
               students: parsed,
+              type: "last",
+              id: "last_student_list",
             },
             ...filtered,
           ];
@@ -949,13 +1005,12 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-48 overflow-y-auto pr-1 compact-scroll">
                   {pastRosters.map((roster, rIdx) => (
-                    <button
-                      key={rIdx}
-                      type="button"
+                    <div
+                      key={roster.id || rIdx}
                       onClick={() => {
                         setStudents(roster.students);
                       }}
-                      className={`p-3.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer ${
+                      className={`p-3.5 rounded-lg border text-left flex items-center justify-between transition-all cursor-pointer group relative ${
                         students.length > 0 &&
                         students[0]?.id === roster.students[0]?.id &&
                         students.length === roster.students.length
@@ -963,7 +1018,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                           : "border-slate-200 hover:border-indigo-300 hover:bg-slate-50/50 text-slate-700 bg-white"
                       }`}
                     >
-                      <div className="flex items-center space-x-3 overflow-hidden">
+                      <div className="flex items-center space-x-3 overflow-hidden pr-2">
                         <div
                           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
                             students.length > 0 &&
@@ -984,7 +1039,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                           </span>
                         </div>
                       </div>
-                      <div className="shrink-0 ml-2">
+                      <div className="shrink-0 flex items-center space-x-2.5">
                         {students.length > 0 &&
                         students[0]?.id === roster.students[0]?.id &&
                         students.length === roster.students.length ? (
@@ -992,13 +1047,25 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             適用中
                           </span>
                         ) : (
-                          <span className="text-[10px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center whitespace-nowrap">
+                          <span className="text-[10px] text-indigo-600 group-hover:text-indigo-700 font-bold flex items-center whitespace-nowrap">
                             呼び出す{" "}
                             <i className="fa-solid fa-chevron-right ml-1"></i>
                           </span>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRoster(roster.id, roster.type);
+                          }}
+                          className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 border border-transparent transition-all"
+                          title="この名簿を削除"
+                        >
+                          <i className="fa-solid fa-trash-can text-xs"></i>
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   ))}
                 </div>
               </div>
