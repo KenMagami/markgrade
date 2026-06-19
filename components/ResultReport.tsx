@@ -233,22 +233,22 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
     compCardPadding = 'p-3';
   } else if (totalQs > 50) {
     colCount = 3;
-    pyTable = '4px';
-    pyHeader = '5px';
-    fontSizeMain = '10.5px';
-    fontSizeSub = '9.5px';
-    fontSizeHeader = '9.5px';
-    pHeader = 'p-6';
-    pContent = 'p-6';
-    mbStats = 'mb-5';
-    mbSpecs = 'mb-5';
-    mbTableTitle = 'mb-3 pb-1.5';
-    mtVisualMap = 'mt-5 mb-3';
-    pyVisualMap = 'p-3';
-    gapClass = 'gap-6';
+    pyTable = '1.5px';
+    pyHeader = '3.5px';
+    fontSizeMain = '9.5px';
+    fontSizeSub = '8.5px';
+    fontSizeHeader = '8.5px';
+    pHeader = 'py-3.5 px-5';
+    pContent = 'px-5 py-4';
+    mbStats = 'mb-2.5';
+    mbSpecs = 'mb-2.5';
+    mbTableTitle = 'mb-1.5 pb-1';
+    mtVisualMap = 'mt-3 mb-1';
+    pyVisualMap = 'p-2.5';
+    gapClass = 'gap-4';
     gridClass = 'grid-cols-3';
-    cardPadding = 'p-3';
-    compCardPadding = 'p-3.5';
+    cardPadding = 'p-2';
+    compCardPadding = 'p-2.5';
   }
 
   // Determine items per column
@@ -301,12 +301,12 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
             flexDirection: 'column',
             backgroundColor: '#ffffff',
             borderBottom: '8px solid #4f46e5',
-            padding: '24px'
+            padding: '16px'
           }}
           className="bg-white border-b-8 border-indigo-600 Page1"
         >
           {/* Header - Academic Elegance */}
-          <div className="bg-[#0f172a] p-5 flex items-center shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a' }}>
+          <div className="bg-[#0f172a] p-4 flex items-center shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a' }}>
              <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
                 {formatClassAndNumber(result.student)}
              </div>
@@ -323,21 +323,21 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
              </div>
              <div className="text-right shrink-0">
                 <div className={`display-font text-xs sm:text-sm font-bold tracking-wider px-3 py-1.5 rounded-sm border ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
-                  {evalInfo.rankText} • {evalInfo.badgeText}
+                  {evalInfo.badgeText}
                 </div>
              </div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-between pt-6 bg-white" style={{ backgroundColor: '#ffffff' }}>
+          <div className="flex-1 flex flex-col justify-between pt-4 bg-white" style={{ backgroundColor: '#ffffff' }}>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-4 gap-4 mb-4" style={{ backgroundColor: '#ffffff' }}>
+            <div className="grid grid-cols-4 gap-3 mb-3" style={{ backgroundColor: '#ffffff' }}>
                {[
                  { label: '総合得点', val: `${result.score} / ${result.totalPoints}`, sub: 'SCORE', color: 'text-slate-900' },
                  { label: '正答率', val: `${result.accuracy.toFixed(1)}%`, sub: 'ACCURACY', color: 'text-indigo-600' },
                  { label: '正解問題数', val: `${result.details.filter(d => d.isCorrect).length}`, sub: `OF ${result.details.length} ITEMS`, color: 'text-slate-900' },
                  { label: 'テスト平均正答率', val: `${(result.details.reduce((acc, d) => acc + (d.overallAccuracy || 0), 0) / result.details.length).toFixed(1)}%`, sub: 'AVERAGE', color: 'text-slate-400' }
                ].map((stat, i) => (
-                 <div key={i} className="p-2 border-l-4 border-slate-200 bg-slate-50 rounded-r shadow-xs" style={{ backgroundColor: '#f8fafc' }}>
+                 <div key={i} className="p-2 border-l-4 border-slate-200 bg-slate-50 rounded-r shadow-xs text-xs" style={{ backgroundColor: '#f8fafc' }}>
                     <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1" style={{ color: '#64748b' }}>{stat.label}</p>
                     <p className={`display-font font-bold text-sm leading-none ${stat.color}`}>{stat.val}</p>
                     {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
@@ -345,26 +345,13 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                ))}
             </div>
 
-            {/* Individual Study Advice Commentary Box */}
-            <div className={`mb-4 p-3 bg-slate-50 border-l-4 ${evalInfo.cardBorder} rounded-r shadow-xs text-xs flex flex-col justify-center`} style={{ backgroundColor: '#f8fafc' }}>
-               <div className="flex items-center space-x-2 mb-1.5">
-                  <span className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">個人講評・学習アドバイス</span>
-                  <span className={`text-[8.5px] font-extrabold px-1.5 py-0.5 rounded leading-none ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
-                     {evalInfo.rankText}
-                  </span>
-               </div>
-               <p className="text-slate-655 leading-relaxed font-sans text-[11px] font-medium" style={{ color: '#475569' }}>
-                  {evalInfo.comment}
-               </p>
-            </div>
-
             {/* Competency Balanced Scorecard */}
             {activeCompetencies.length > 0 && (
-              <div className="grid grid-cols-3 gap-4 mb-5" style={{ backgroundColor: '#ffffff' }}>
+              <div className="grid grid-cols-3 gap-3 mb-3.5" style={{ backgroundColor: '#ffffff' }}>
                  {activeCompetencies.map((key) => {
                    const comp = result.competencyResults[key];
                    return (
-                     <div key={key} className="p-3 border border-slate-100 rounded-lg relative" style={{ backgroundColor: competencyBg[key] }}>
+                     <div key={key} className="p-2.5 border border-slate-100 rounded-lg relative" style={{ backgroundColor: competencyBg[key] }}>
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1" style={{ color: '#64748b' }}>{comp.label}</p>
                         <div className="flex justify-between items-baseline">
                            <span className={`display-font text-sm font-bold ${competencyColors[key]}`}>{comp.percentage.toFixed(0)}%</span>
@@ -381,25 +368,25 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
 
             {/* Detailed Score Table */}
             <div className="flex-1" style={{ backgroundColor: '#ffffff' }}>
-              <div className="flex items-center space-x-3 border-b border-slate-200 mb-3 pb-1.5">
+              <div className="flex items-center space-x-3 border-b border-slate-200 mb-2 pb-1">
                 <span className="display-font font-semibold text-[9px] uppercase text-slate-400 tracking-widest" style={{ color: '#94a3b8' }}>Detailed Scoring Matrix (1〜100問)</span>
                 <div className="flex-1 h-px bg-slate-100" style={{ backgroundColor: '#f1f5f9' }}></div>
               </div>
-              <div className="grid grid-cols-3 gap-5" style={{ backgroundColor: '#ffffff' }}>
+              <div className="grid grid-cols-3 gap-4" style={{ backgroundColor: '#ffffff' }}>
                 {columns1.map((colItems, idx) => (
                    <div key={idx} className="" style={{ backgroundColor: '#ffffff' }}>
                      <table className="w-full text-left table-fixed border-collapse">
                        <thead>
-                         <TableHeader pyHeader="4px" fontSizeHeader="9px" isCompact={true} />
+                         <TableHeader pyHeader="3px" fontSizeHeader="8.5px" isCompact={true} />
                        </thead>
                        <tbody style={{ backgroundColor: '#ffffff' }}>
                          {colItems.map((d) => (
                            <TableRow 
                              key={d.questionNumber} 
                              d={d} 
-                             pyTable="3.5px" 
-                             fontSizeMain="9.5px" 
-                             fontSizeSub="8.5px" 
+                             pyTable="1.5px" 
+                             fontSizeMain="9px" 
+                             fontSizeSub="8px" 
                            />
                          ))}
                        </tbody>
@@ -431,7 +418,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
             flexDirection: 'column',
             backgroundColor: '#ffffff',
             borderBottom: '8px solid #4f46e5',
-            padding: '24px'
+            padding: '16px'
           }}
           className="bg-white border-b-8 border-indigo-600 Page2 page-break-before"
         >
@@ -458,29 +445,29 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
              </div>
           </div>
 
-          <div className="flex-1 flex flex-col justify-between pt-6 bg-white" style={{ backgroundColor: '#ffffff' }}>
+          <div className="flex-1 flex flex-col justify-between pt-4 bg-white" style={{ backgroundColor: '#ffffff' }}>
             
             {/* Detailed Score Table */}
             <div className="flex-1" style={{ backgroundColor: '#ffffff' }}>
-              <div className="flex items-center space-x-3 border-b border-slate-200 mb-3 pb-1.5">
+              <div className="flex items-center space-x-3 border-b border-slate-200 mb-2 pb-1">
                 <span className="display-font font-semibold text-[9px] uppercase text-slate-400 tracking-widest" style={{ color: '#94a3b8' }}>Detailed Scoring Matrix (101問〜)</span>
                 <div className="flex-1 h-px bg-slate-100" style={{ backgroundColor: '#f1f5f9' }}></div>
               </div>
-              <div className="grid grid-cols-3 gap-5" style={{ backgroundColor: '#ffffff' }}>
+              <div className="grid grid-cols-3 gap-4" style={{ backgroundColor: '#ffffff' }}>
                 {columns2.map((colItems, idx) => (
                    <div key={idx} className="" style={{ backgroundColor: '#ffffff' }}>
                      <table className="w-full text-left table-fixed border-collapse">
                        <thead>
-                         <TableHeader pyHeader="4px" fontSizeHeader="9px" isCompact={true} />
+                         <TableHeader pyHeader="3px" fontSizeHeader="8.5px" isCompact={true} />
                        </thead>
                        <tbody style={{ backgroundColor: '#ffffff' }}>
                          {colItems.map((d) => (
                            <TableRow 
                              key={d.questionNumber} 
                              d={d} 
-                             pyTable="3.5px" 
-                             fontSizeMain="9.5px" 
-                             fontSizeSub="8.5px" 
+                             pyTable="1.5px" 
+                             fontSizeMain="9px" 
+                             fontSizeSub="8px" 
                            />
                          ))}
                        </tbody>
@@ -491,7 +478,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
             </div>
 
             {/* Visual Score Map */}
-            <div className="bg-slate-50 p-3 rounded border border-slate-100 mt-4 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
+            <div className="bg-slate-50 p-2.5 rounded border border-slate-100 mt-3 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">設問ごとの正誤分布マップ (全 {details.length} 問)</p>
               <div className="flex h-3 gap-1">
                 {result.details.map((d, i) => (
@@ -563,7 +550,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
          </div>
          <div className="text-right shrink-0">
             <div className={`display-font text-xs sm:text-sm font-bold tracking-wider px-3 py-1.5 rounded-sm border ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
-              {evalInfo.rankText} • {evalInfo.badgeText}
+              {evalInfo.badgeText}
             </div>
          </div>
       </div>
@@ -584,19 +571,6 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                 {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
              </div>
            ))}
-        </div>
-
-        {/* Individual Study Advice Commentary Box */}
-        <div className={`mb-4 p-3.5 bg-slate-50 border-l-4 ${evalInfo.cardBorder} rounded-r shadow-xs text-xs flex flex-col justify-center`} style={{ backgroundColor: '#f8fafc' }}>
-           <div className="flex items-center space-x-2 mb-1.5">
-              <span className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">個人講評・学習アドバイス</span>
-              <span className={`text-[8.5px] font-extrabold px-1.5 py-0.5 rounded leading-none ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
-                 {evalInfo.rankText}
-              </span>
-           </div>
-           <p className="text-slate-655 leading-relaxed font-sans text-[11px] font-medium" style={{ color: '#475569' }}>
-              {evalInfo.comment}
-           </p>
         </div>
 
         {/* Competency Balanced Scorecard */}
