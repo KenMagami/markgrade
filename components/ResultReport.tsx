@@ -33,21 +33,21 @@ interface TableRowProps {
 }
 
 const TableRow: React.FC<TableRowProps> = ({ d, pyTable, fontSizeMain, fontSizeSub }) => (
-  <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors" style={{ backgroundColor: '#ffffff', pageBreakInside: 'avoid' }}>
-    <td className="font-bold text-slate-700 display-font text-left" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeMain }}>Q{d.questionNumber.toString().padStart(2, '0')}</td>
-    <td className="font-medium text-slate-400 text-left" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeSub }}>{d.point}</td>
-    <td className="font-bold text-indigo-600 text-left" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeMain }}>{d.correctAnswer}</td>
-    <td className={`font-bold ${d.isCorrect ? 'text-slate-800' : 'text-rose-500 font-black'} text-left`} style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeMain }}>
+  <tr className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors" style={{ backgroundColor: '#ffffff', pageBreakInside: 'avoid', lineHeight: '1.0' }}>
+    <td className="font-bold text-slate-700 display-font text-left" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeMain, lineHeight: '1.0' }}>Q{d.questionNumber.toString().padStart(2, '0')}</td>
+    <td className="font-medium text-slate-400 text-left" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeSub, lineHeight: '1.0' }}>{d.point}</td>
+    <td className="font-bold text-indigo-600 text-left" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeMain, lineHeight: '1.0' }}>{d.correctAnswer}</td>
+    <td className={`font-bold ${d.isCorrect ? 'text-slate-800' : 'text-rose-500 font-black'} text-left`} style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeMain, lineHeight: '1.0' }}>
       {d.studentAnswer || "-"}
     </td>
-    <td className="text-center" style={{ paddingTop: pyTable, paddingBottom: pyTable }}>
+    <td className="text-center" style={{ paddingTop: pyTable, paddingBottom: pyTable, lineHeight: '1.0' }}>
       {d.isCorrect ? (
-        <span className="text-emerald-500 font-bold bg-emerald-50 rounded" style={{ padding: '1px 3px', fontSize: fontSizeSub }}>○</span>
+        <span className="text-emerald-500 font-extrabold bg-emerald-50 rounded-xs" style={{ padding: '0px 2px', fontSize: `calc(${fontSizeSub} - 0.5px)`, lineHeight: '1.0', display: 'inline-block' }}>○</span>
       ) : (
-        <span className="text-rose-500 font-bold bg-rose-50 rounded" style={{ padding: '1px 3px', fontSize: fontSizeSub }}>×</span>
+        <span className="text-rose-500 font-extrabold bg-rose-50 rounded-xs" style={{ padding: '0px 2px', fontSize: `calc(${fontSizeSub} - 0.5px)`, lineHeight: '1.0', display: 'inline-block' }}>×</span>
       )}
     </td>
-    <td className="text-right text-slate-400 font-medium mono-font" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeSub }}>
+    <td className="text-right text-slate-400 font-medium mono-font" style={{ paddingTop: pyTable, paddingBottom: pyTable, fontSize: fontSizeSub, lineHeight: '1.0' }}>
       {d.overallAccuracy !== undefined ? `${d.overallAccuracy.toFixed(0)}%` : "-"}
     </td>
   </tr>
@@ -55,15 +55,18 @@ const TableRow: React.FC<TableRowProps> = ({ d, pyTable, fontSizeMain, fontSizeS
 
 const getStudentNumber = (student: { id: string; class: string; number?: string }) => {
   if (student.number !== undefined && student.number !== null && student.number !== '') {
-    const clean = student.number.replace(/番$/, '');
-    const parsed = parseInt(clean, 10);
-    return isNaN(parsed) ? clean : String(parsed);
+    const digitsOnly = student.number.replace(/\D/g, '');
+    if (digitsOnly) {
+      return digitsOnly.slice(0, 2);
+    }
+    return student.number.slice(0, 2);
   }
   // fallback parsing ID
   const match = student.id.match(/\d+$/);
   if (match) {
-    const parsed = parseInt(match[0], 10);
-    return isNaN(parsed) ? match[0] : String(parsed);
+    const rawNum = match[0];
+    const parsed = parseInt(rawNum, 10);
+    return isNaN(parsed) ? rawNum.slice(0, 2) : String(parsed).slice(0, 2);
   }
   return '';
 };
@@ -197,58 +200,58 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
 
   if (totalQs > 160) {
     colCount = 5;
-    pyTable = '1.5px';
-    pyHeader = '3px';
+    pyTable = '1.2px';
+    pyHeader = '2px';
     fontSizeMain = '8px';
     fontSizeSub = '7.5px';
     fontSizeHeader = '8px';
-    pHeader = 'py-4 px-6';
-    pContent = 'py-4 px-6';
-    mbStats = 'mb-3';
-    mbSpecs = 'mb-3';
-    mbTableTitle = 'mb-2 pb-1';
-    mtVisualMap = 'mt-3 mb-2';
-    pyVisualMap = 'p-2';
-    gapClass = 'gap-3';
+    pHeader = 'py-3 px-5';
+    pContent = 'py-3 px-5';
+    mbStats = 'mb-2';
+    mbSpecs = 'mb-2';
+    mbTableTitle = 'mb-1.5 pb-0.5';
+    mtVisualMap = 'mt-2 mb-1.5';
+    pyVisualMap = 'p-1.5';
+    gapClass = 'gap-2';
     gridClass = 'grid-cols-5';
-    cardPadding = 'p-2';
-    compCardPadding = 'p-2.5';
+    cardPadding = 'p-1.5';
+    compCardPadding = 'p-2';
   } else if (totalQs > 100) {
     colCount = 4;
-    pyTable = '2.5px';
-    pyHeader = '4px';
-    fontSizeMain = '9.5px';
-    fontSizeSub = '8.5px';
-    fontSizeHeader = '9px';
-    pHeader = 'py-5 px-6';
-    pContent = 'py-5 px-6';
-    mbStats = 'mb-4';
-    mbSpecs = 'mb-4';
-    mbTableTitle = 'mb-2.5 pb-1.5';
-    mtVisualMap = 'mt-4 mb-3';
-    pyVisualMap = 'p-2.5';
-    gapClass = 'gap-4';
+    pyTable = '1.0px';
+    pyHeader = '1.5px';
+    fontSizeMain = '8.2px';
+    fontSizeSub = '7px';
+    fontSizeHeader = '8px';
+    pHeader = 'py-2 px-4';
+    pContent = 'py-2 px-4';
+    mbStats = 'mb-1.5';
+    mbSpecs = 'mb-1.5';
+    mbTableTitle = 'mb-1 pb-0.5';
+    mtVisualMap = 'mt-1.5 mb-1';
+    pyVisualMap = 'p-1.5';
+    gapClass = 'gap-2.5';
     gridClass = 'grid-cols-4';
-    cardPadding = 'p-2.5';
-    compCardPadding = 'p-3';
+    cardPadding = 'p-1.5';
+    compCardPadding = 'p-2';
   } else if (totalQs > 50) {
-    colCount = 3;
-    pyTable = '1.5px';
-    pyHeader = '3.5px';
-    fontSizeMain = '9.5px';
-    fontSizeSub = '8.5px';
-    fontSizeHeader = '8.5px';
-    pHeader = 'py-3.5 px-5';
-    pContent = 'px-5 py-4';
-    mbStats = 'mb-2.5';
-    mbSpecs = 'mb-2.5';
-    mbTableTitle = 'mb-1.5 pb-1';
-    mtVisualMap = 'mt-3 mb-1';
-    pyVisualMap = 'p-2.5';
-    gapClass = 'gap-4';
-    gridClass = 'grid-cols-3';
-    cardPadding = 'p-2';
-    compCardPadding = 'p-2.5';
+    colCount = 4;
+    pyTable = '1.0px';
+    pyHeader = '1.5px';
+    fontSizeMain = '8.2px';
+    fontSizeSub = '7px';
+    fontSizeHeader = '8px';
+    pHeader = 'py-2 px-4';
+    pContent = 'py-2 px-4';
+    mbStats = 'mb-1.5';
+    mbSpecs = 'mb-1.5';
+    mbTableTitle = 'mb-1 pb-0.5';
+    mtVisualMap = 'mt-1.5 mb-1';
+    pyVisualMap = 'p-1.5';
+    gapClass = 'gap-2.5';
+    gridClass = 'grid-cols-4';
+    cardPadding = 'p-1.5';
+    compCardPadding = 'p-1.5';
   }
 
   // Determine items per column
@@ -261,13 +264,13 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
     const cohort1 = details.slice(0, 100);
     const cohort2 = details.slice(100);
 
-    const colCount1 = 3;
+    const colCount1 = 4;
     const itemsPerCol1 = Math.ceil(cohort1.length / colCount1);
     const columns1 = Array.from({ length: colCount1 }, (_, i) => 
       cohort1.slice(i * itemsPerCol1, (i + 1) * itemsPerCol1)
     );
 
-    const colCount2 = 3;
+    const colCount2 = 4;
     const itemsPerCol2 = Math.ceil(cohort2.length / colCount2);
     const columns2 = Array.from({ length: colCount2 }, (_, i) => 
       cohort2.slice(i * itemsPerCol2, (i + 1) * itemsPerCol2)
@@ -295,52 +298,77 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
         {/* PAGE 1: FRONT (1-100) */}
         <div 
           style={{
-            minHeight: '277mm',
+            height: '276mm',
+            maxHeight: '276mm',
+            overflow: 'hidden',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#ffffff',
             borderBottom: '8px solid #4f46e5',
-            padding: '16px'
+            padding: '10px'
           }}
           className="bg-white border-b-8 border-indigo-600 Page1"
         >
           {/* Header - Academic Elegance */}
-          <div className="bg-[#0f172a] p-4 flex items-center shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a' }}>
-             <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-                {formatClassAndNumber(result.student)}
-             </div>
-             <div className="flex-1 min-w-0">
-                <div className="text-white font-extrabold text-lg sm:text-l md:text-xl tracking-wider mb-1 display-font truncate" style={{ color: '#ffffff' }}>
-                  {sessionTitle || "ASSESSMENT REPORT"}
+          <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a', paddingTop: '28px', paddingBottom: '28px', paddingLeft: '20px', paddingRight: '20px' }}>
+             {/* Title row */}
+             <div className="w-full flex justify-between items-center gap-4">
+                <div className="flex-1 min-w-0">
+                   <div 
+                     className={`text-white font-black tracking-wider display-font break-words ${
+                       (sessionTitle || "ASSESSMENT REPORT").length > 50 ? 'text-[12px] leading-tight' : (sessionTitle || "ASSESSMENT REPORT").length > 30 ? 'text-sm sm:text-base leading-snug' : 'text-base sm:text-lg md:text-xl'
+                     }`} 
+                     style={{ color: '#ffffff' }}
+                   >
+                      {sessionTitle || "ASSESSMENT REPORT"}
+                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
-                  {result.student.name}
-                </h2>
-                <div className="text-indigo-400 font-semibold text-[10px] tracking-widest uppercase truncate" style={{ color: '#818cf8' }}>
-                  表面 (1〜100問)
+                <div className="text-right shrink-0">
+                   <div className={`display-font text-xs sm:text-sm font-black tracking-widest px-5 py-2.5 rounded-md border-2 shadow-sm ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+                     {evalInfo.badgeText}
+                   </div>
                 </div>
              </div>
-             <div className="text-right shrink-0">
-                <div className={`display-font text-xs sm:text-sm font-bold tracking-wider px-3 py-1.5 rounded-sm border ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
-                  {evalInfo.badgeText}
+             
+             {/* Student details row (Below Title) */}
+             <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                   <div className="bg-indigo-600 text-white px-3.5 py-1.5 font-black text-sm rounded-md display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                      {formatClassAndNumber(result.student)}
+                   </div>
+                   <div className="flex flex-col justify-center min-w-0 leading-tight">
+                      {result.student.furigana && (
+                        <span className="text-[10px] text-slate-300 font-bold tracking-wider truncate mb-0.5" style={{ color: '#cbd5e1' }}>
+                           {result.student.furigana}
+                        </span>
+                      )}
+                      <h2 className="text-xl md:text-2xl font-black text-white mb-0 tracking-tight display-font truncate animate-fade-in" style={{ color: '#ffffff' }}>
+                         {result.student.name}
+                      </h2>
+                   </div>
+                </div>
+                <div className="text-indigo-400 font-extrabold text-[10.5px] tracking-widest uppercase shrink-0" style={{ color: '#818cf8' }}>
+                   表面 (1〜100問)
                 </div>
              </div>
           </div>
 
           <div className="flex-1 flex flex-col justify-between pt-4 bg-white" style={{ backgroundColor: '#ffffff' }}>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-4 gap-3 mb-3" style={{ backgroundColor: '#ffffff' }}>
+            <div className="grid grid-cols-4 gap-3.5 mb-3.5" style={{ backgroundColor: '#ffffff' }}>
                {[
                  { label: '総合得点', val: `${result.score} / ${result.totalPoints}`, sub: 'SCORE', color: 'text-slate-900' },
                  { label: '正答率', val: `${result.accuracy.toFixed(1)}%`, sub: 'ACCURACY', color: 'text-indigo-600' },
                  { label: '正解問題数', val: `${result.details.filter(d => d.isCorrect).length}`, sub: `OF ${result.details.length} ITEMS`, color: 'text-slate-900' },
-                 { label: 'テスト平均正答率', val: `${(result.details.reduce((acc, d) => acc + (d.overallAccuracy || 0), 0) / result.details.length).toFixed(1)}%`, sub: 'AVERAGE', color: 'text-slate-400' }
+                 { label: '平均正答率', val: `${(result.details.reduce((acc, d) => acc + (d.overallAccuracy || 0), 0) / result.details.length).toFixed(1)}%`, sub: 'AVERAGE', color: 'text-slate-400' }
                ].map((stat, i) => (
-                 <div key={i} className="p-2 border-l-4 border-slate-200 bg-slate-50 rounded-r shadow-xs text-xs" style={{ backgroundColor: '#f8fafc' }}>
-                    <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1" style={{ color: '#64748b' }}>{stat.label}</p>
-                    <p className={`display-font font-bold text-sm leading-none ${stat.color}`}>{stat.val}</p>
-                    {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
+                 <div key={i} className="py-2.5 px-3 border-l-4 border-indigo-600 bg-slate-50/80 rounded-r shadow-xs text-xs flex flex-col justify-between" style={{ backgroundColor: '#f8fafc' }}>
+                    <div className="flex items-baseline justify-between gap-1 w-full overflow-hidden mb-1.5">
+                       <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tight truncate shrink-0" style={{ color: '#475569' }}>{stat.label}</span>
+                       <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider truncate" style={{ color: '#94a3b8' }}>{stat.sub}</span>
+                    </div>
+                    <p className={`display-font font-black text-sm sm:text-base md:text-lg leading-snug ${stat.color}`}>{stat.val}</p>
                  </div>
                ))}
             </div>
@@ -351,7 +379,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                  {activeCompetencies.map((key) => {
                    const comp = result.competencyResults[key];
                    return (
-                     <div key={key} className="p-2.5 border border-slate-100 rounded-lg relative" style={{ backgroundColor: competencyBg[key] }}>
+                     <div key={key} className="p-1.5 border border-slate-100 rounded-lg relative" style={{ backgroundColor: competencyBg[key] }}>
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1" style={{ color: '#64748b' }}>{comp.label}</p>
                         <div className="flex justify-between items-baseline">
                            <span className={`display-font text-sm font-bold ${competencyColors[key]}`}>{comp.percentage.toFixed(0)}%</span>
@@ -372,7 +400,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                 <span className="display-font font-semibold text-[9px] uppercase text-slate-400 tracking-widest" style={{ color: '#94a3b8' }}>Detailed Scoring Matrix (1〜100問)</span>
                 <div className="flex-1 h-px bg-slate-100" style={{ backgroundColor: '#f1f5f9' }}></div>
               </div>
-              <div className="grid grid-cols-3 gap-4" style={{ backgroundColor: '#ffffff' }}>
+              <div className="grid grid-cols-4 gap-4" style={{ backgroundColor: '#ffffff' }}>
                 {columns1.map((colItems, idx) => (
                    <div key={idx} className="" style={{ backgroundColor: '#ffffff' }}>
                      <table className="w-full text-left table-fixed border-collapse">
@@ -412,35 +440,58 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
         <div 
           style={{
             pageBreakBefore: 'always',
-            minHeight: '277mm',
+            height: '276mm',
+            maxHeight: '276mm',
+            overflow: 'hidden',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
             backgroundColor: '#ffffff',
             borderBottom: '8px solid #4f46e5',
-            padding: '16px'
+            padding: '10px'
           }}
           className="bg-white border-b-8 border-indigo-600 Page2 page-break-before"
         >
           {/* Header - Academic Elegance */}
-          <div className="bg-[#1e293b] p-4 flex items-center shrink-0 rounded-t-sm" style={{ backgroundColor: '#1e293b' }}>
-             <div className="bg-indigo-500 text-white px-3 py-1 font-bold text-xs rounded-sm mr-5 display-font tracking-wide shrink-0" style={{ backgroundColor: '#6366f1', color: '#ffffff' }}>
-                {formatClassAndNumber(result.student)}
-             </div>
-             <div className="flex-1 min-w-0">
-                <div className="text-white font-bold text-base tracking-wide mb-1 display-font truncate" style={{ color: '#ffffff' }}>
-                  {sessionTitle || "ASSESSMENT REPORT"}
+          <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a', paddingTop: '28px', paddingBottom: '28px', paddingLeft: '20px', paddingRight: '20px' }}>
+             {/* Title row */}
+             <div className="w-full flex justify-between items-center gap-4">
+                <div className="flex-1 min-w-0">
+                   <div 
+                     className={`text-white font-black tracking-wider display-font break-words ${
+                       (sessionTitle || "ASSESSMENT REPORT").length > 50 ? 'text-[12px] leading-tight' : (sessionTitle || "ASSESSMENT REPORT").length > 30 ? 'text-sm sm:text-base leading-snug' : 'text-base sm:text-lg md:text-xl'
+                     }`} 
+                     style={{ color: '#ffffff' }}
+                   >
+                      {sessionTitle || "ASSESSMENT REPORT"}
+                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
-                  {result.student.name}
-                </h3>
-                <div className="text-indigo-300 font-semibold text-[10px] tracking-widest uppercase truncate" style={{ color: '#a5b4fc' }}>
-                  裏面 (101問以降)
+                <div className="text-right shrink-0">
+                   <div className={`display-font text-xs sm:text-sm font-black tracking-widest px-5 py-2.5 rounded-md border-2 shadow-sm ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+                     {evalInfo.badgeText}
+                   </div>
                 </div>
              </div>
-             <div className="text-right shrink-0">
-                <div className="display-font text-xs font-semibold tracking-wider text-slate-300">
-                  MarkGrade Analysis Logs
+             
+             {/* Student details row */}
+             <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                   <div className="bg-indigo-600 text-white px-3.5 py-1.5 font-black text-sm rounded-md display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                      {formatClassAndNumber(result.student)}
+                   </div>
+                   <div className="flex flex-col justify-center min-w-0 leading-tight">
+                      {result.student.furigana && (
+                        <span className="text-[10px] text-slate-300 font-bold tracking-wider truncate mb-0.5" style={{ color: '#cbd5e1' }}>
+                           {result.student.furigana}
+                        </span>
+                      )}
+                      <h2 className="text-xl md:text-2xl font-black text-white mb-0 tracking-tight display-font truncate animate-fade-in" style={{ color: '#ffffff' }}>
+                         {result.student.name}
+                      </h2>
+                   </div>
+                </div>
+                <div className="text-indigo-400 font-extrabold text-[10.5px] tracking-widest uppercase shrink-0" style={{ color: '#818cf8' }}>
+                   裏面 (101問以降)
                 </div>
              </div>
           </div>
@@ -453,7 +504,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                 <span className="display-font font-semibold text-[9px] uppercase text-slate-400 tracking-widest" style={{ color: '#94a3b8' }}>Detailed Scoring Matrix (101問〜)</span>
                 <div className="flex-1 h-px bg-slate-100" style={{ backgroundColor: '#f1f5f9' }}></div>
               </div>
-              <div className="grid grid-cols-3 gap-4" style={{ backgroundColor: '#ffffff' }}>
+              <div className="grid grid-cols-4 gap-4" style={{ backgroundColor: '#ffffff' }}>
                 {columns2.map((colItems, idx) => (
                    <div key={idx} className="" style={{ backgroundColor: '#ffffff' }}>
                      <table className="w-full text-left table-fixed border-collapse">
@@ -512,8 +563,9 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
       className="bg-white text-slate-800 shadow-none p-0 border-b-8 border-indigo-600" 
       style={{ 
         width: '100%', 
-        minHeight: '277mm',
-        height: 'auto',
+        height: '276mm',
+        maxHeight: '276mm',
+        overflow: 'hidden',
         backgroundColor: '#ffffff',
         position: 'relative',
         boxSizing: 'border-box',
@@ -536,21 +588,42 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
       `}</style>
 
       {/* Header - Academic Elegance */}
-      <div className={`bg-[#0f172a] ${pHeader} flex items-center shrink-0 avoid-break`} style={{ backgroundColor: '#0f172a' }}>
-         <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-            {formatClassAndNumber(result.student)}
-         </div>
-         <div className="flex-1 min-w-0">
-            <div className="text-white font-extrabold text-lg sm:text-xl tracking-wider mb-1 display-font truncate" style={{ color: '#ffffff' }}>
-              {sessionTitle || "ASSESSMENT REPORT"}
+      <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 avoid-break" style={{ backgroundColor: '#0f172a', paddingTop: '28px', paddingBottom: '28px', paddingLeft: '20px', paddingRight: '20px' }}>
+         {/* Title row */}
+         <div className="w-full flex justify-between items-center gap-4">
+            <div className="flex-1 min-w-0">
+               <div 
+                 className={`text-white font-black tracking-wider display-font break-words ${
+                   (sessionTitle || "ASSESSMENT REPORT").length > 50 ? 'text-[12px] leading-tight' : (sessionTitle || "ASSESSMENT REPORT").length > 30 ? 'text-sm sm:text-base leading-snug' : 'text-base sm:text-lg md:text-xl'
+                 }`} 
+                 style={{ color: '#ffffff' }}
+               >
+                  {sessionTitle || "ASSESSMENT REPORT"}
+               </div>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
-              {result.student.name}
-            </h2>
+            <div className="text-right shrink-0">
+               <div className={`display-font text-xs sm:text-sm font-black tracking-widest px-5 py-2.5 rounded-md border-2 shadow-sm ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+                 {evalInfo.badgeText}
+               </div>
+            </div>
          </div>
-         <div className="text-right shrink-0">
-            <div className={`display-font text-xs sm:text-sm font-bold tracking-wider px-3 py-1.5 rounded-sm border ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
-              {evalInfo.badgeText}
+         
+         {/* Student details row */}
+         <div className="flex items-center justify-between border-t border-slate-800/80 pt-3 gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+               <div className="bg-indigo-600 text-white px-3.5 py-1.5 font-black text-sm rounded-md display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                  {formatClassAndNumber(result.student)}
+               </div>
+               <div className="flex flex-col justify-center min-w-0 leading-tight">
+                  {result.student.furigana && (
+                    <span className="text-[10px] text-slate-300 font-bold tracking-wider truncate mb-0.5" style={{ color: '#cbd5e1' }}>
+                       {result.student.furigana}
+                    </span>
+                  )}
+                  <h2 className="text-xl md:text-2xl font-black text-white mb-0 tracking-tight display-font truncate animate-fade-in" style={{ color: '#ffffff' }}>
+                     {result.student.name}
+                  </h2>
+               </div>
             </div>
          </div>
       </div>
@@ -565,10 +638,12 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
              { label: '正解問題数', val: `${result.details.filter(d => d.isCorrect).length}`, sub: `OF ${result.details.length} ITEMS`, color: 'text-slate-900' },
              { label: 'テスト平均正答率', val: `${(result.details.reduce((acc, d) => acc + (d.overallAccuracy || 0), 0) / result.details.length).toFixed(1)}%`, sub: 'AVERAGE', color: 'text-slate-400' }
            ].map((stat, i) => (
-             <div key={i} className={`${cardPadding} border-l-4 border-slate-200 bg-slate-50 rounded-r shadow-xs`} style={{ backgroundColor: '#f8fafc' }}>
-                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1" style={{ color: '#64748b' }}>{stat.label}</p>
+             <div key={i} className={`${cardPadding} border-l-4 border-slate-200 bg-slate-50 rounded-r shadow-xs flex flex-col justify-between`} style={{ backgroundColor: '#f8fafc' }}>
+                <div className="flex items-baseline justify-between gap-1 w-full overflow-hidden mb-1">
+                   <span className="text-[9px] font-bold text-slate-600 uppercase tracking-tight truncate shrink-0" style={{ color: '#475569' }}>{stat.label}</span>
+                   <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-wider truncate" style={{ color: '#94a3b8' }}>{stat.sub}</span>
+                </div>
                 <p className={`display-font font-bold text-base leading-none ${stat.color}`}>{stat.val}</p>
-                {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
              </div>
            ))}
         </div>

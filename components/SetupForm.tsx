@@ -367,7 +367,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
       const parsed = csvLines
         .slice(1)
         .map((line) => {
-          const [grade, cls, num, name] = line.split(",").map((s) => s.trim());
+          const parts = line.split(",").map((s) => s.trim());
+          const [grade, cls, num, name, furigana] = parts;
           if (!grade || !cls || !num) return null;
           const paddedNum = num.padStart(2, "0");
           const id = `${grade}${cls}${paddedNum}`;
@@ -376,6 +377,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
             name: name || `生徒 ${paddedNum}`,
             class: `${grade}年${cls}組`,
             number: num,
+            furigana: furigana || "",
           } as Student;
         })
         .filter((s): s is Student => s !== null);
@@ -423,7 +425,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
   const downloadStudentTemplate = () => {
     const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
     const csvContent =
-      "grade,class,number,name\n1,A,01,山田 太郎\n1,A,02,佐藤 花子";
+      "grade,class,number,name,furigana\n1,A,01,山田 太郎,やまだ たろう\n1,A,02,佐藤 花子,さとう はなこ";
     const blob = new Blob([bom, csvContent], {
       type: "text/csv;charset=utf-8",
     });

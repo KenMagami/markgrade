@@ -4,6 +4,7 @@ export interface Student {
   name: string;
   class: string;
   number?: string;
+  furigana?: string;
 }
 
 export type CompetencyType = 'none' | 'knowledge' | 'thinking' | 'attitude';
