@@ -53,11 +53,96 @@ const TableRow: React.FC<TableRowProps> = ({ d, pyTable, fontSizeMain, fontSizeS
   </tr>
 );
 
-const formatClassAndNumber = (student: { id: string; class: string }) => {
+const getStudentNumber = (student: { id: string; class: string; number?: string }) => {
+  if (student.number !== undefined && student.number !== null && student.number !== '') {
+    const clean = student.number.replace(/番$/, '');
+    const parsed = parseInt(clean, 10);
+    return isNaN(parsed) ? clean : String(parsed);
+  }
+  // fallback parsing ID
+  const match = student.id.match(/\d+$/);
+  if (match) {
+    const parsed = parseInt(match[0], 10);
+    return isNaN(parsed) ? match[0] : String(parsed);
+  }
+  return '';
+};
+
+const formatClassAndNumber = (student: { id: string; class: string; number?: string }) => {
   const cls = student.class && student.class !== '-' ? student.class : '';
-  const num = student.id || '';
-  const numStr = num.includes('番') ? num : (num ? `${num}番` : '');
-  return `${cls} ${numStr}`.trim() || 'ー年ー組ー番';
+  const num = getStudentNumber(student);
+  const numStr = num ? `${num}番` : '';
+  if (cls && numStr) {
+    return `${cls}${numStr}`;
+  }
+  return cls || numStr || 'ー年ー組ー番';
+};
+
+const getScoreEvaluation = (accuracy: number) => {
+  if (accuracy === 100) {
+    return {
+      rankText: '秀 (S)',
+      badgeText: 'PERFECT',
+      badgeBg: 'bg-indigo-600 border-indigo-500 text-white',
+      cardBorder: 'border-l-indigo-600',
+      badgeColorHex: '#4f46e5',
+      comment: '満点、本当におめでとうございます！すべての設問に完璧に解答できており、抜群の理解度です。この素晴らしい学力と自信を大切に、さらに得意意識を伸ばしていきましょう！',
+    };
+  } else if (accuracy >= 90) {
+    return {
+      rankText: '優 (A)',
+      badgeText: 'EXCELLENT',
+      badgeBg: 'bg-emerald-600 border-emerald-500 text-white',
+      cardBorder: 'border-l-emerald-500',
+      badgeColorHex: '#10b981',
+      comment: '素晴らしい成績です！基礎知識はもちろん、思考力が必要な問題もしっかり得点できています。間違えたわずかな部分をテスト後の見直しでクリアにし、次回はさらなる高みを目指しましょう！',
+    };
+  } else if (accuracy >= 80) {
+    return {
+      rankText: '良 (B)',
+      badgeText: 'VERY GOOD',
+      badgeBg: 'bg-sky-600 border-sky-400 text-white',
+      cardBorder: 'border-l-sky-500',
+      badgeColorHex: '#0284c7',
+      comment: '非常によく健闘しました！全体的に安定した理解レベルに達しています。返却された答案の「間違えた理由」を少し分析して復習するだけで、さらに確固たる実力が身につきます。',
+    };
+  } else if (accuracy >= 70) {
+    return {
+      rankText: '良好 (C+)',
+      badgeText: 'GOOD',
+      badgeBg: 'bg-teal-600 border-teal-500 text-white',
+      cardBorder: 'border-l-teal-500',
+      badgeColorHex: '#0d9488',
+      comment: 'よく頑張りました！基礎的な内容や知識は十分に定着しています。今後は間違えた分野の解説を見直し、少し難しい応用問題にも積極的にチャレンジして得点源を広げましょう。',
+    };
+  } else if (accuracy >= 60) {
+    return {
+      rankText: '標準 (C)',
+      badgeText: 'PASS',
+      badgeBg: 'bg-indigo-50 border-indigo-200 text-indigo-700',
+      cardBorder: 'border-l-indigo-300',
+      badgeColorHex: '#6366f1',
+      comment: '合格基準をしっかりとクリアできました！よく努力された成果です。一部の苦手な分野の基礎を再度整理し、解き直しを重ねることで、次回はさらに上の目標が十分クリア可能です！',
+    };
+  } else if (accuracy >= 45) {
+    return {
+      rankText: '要努力 (D)',
+      badgeText: 'NEAR PASS',
+      badgeBg: 'bg-amber-500 border-amber-400 text-white',
+      cardBorder: 'border-l-amber-500',
+      badgeColorHex: '#f59e0b',
+      comment: '目標レベルまであと一歩です！ミスした問題のなかには、解き方を少し見直すだけで正解できた惜しいものもありそうです。まずは教科書の例題レベルから確実に解けるよう復習しましょう。',
+    };
+  } else {
+    return {
+      rankText: '要復習 (E)',
+      badgeText: 'RETRY',
+      badgeBg: 'bg-rose-50 border-rose-200 text-rose-700 font-bold',
+      cardBorder: 'border-l-rose-400',
+      badgeColorHex: '#f43f5e',
+      comment: '伸びしろが非常に大きい領域です！焦る必要はありません。今回の間違いは大切な学習ステップです。まずは基本事項（公式・英単語・基礎用語など）を一つずつ着実に見端から見直して、自信をつけましょう！',
+    };
+  }
 };
 
 export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle }) => {
@@ -88,6 +173,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
 
   const details = result.details;
   const totalQs = details.length;
+  const evalInfo = getScoreEvaluation(result.accuracy);
 
   let colCount = 2;
   let pyTable = '6px';
@@ -225,7 +311,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                 {formatClassAndNumber(result.student)}
              </div>
              <div className="flex-1 min-w-0">
-                <div className="text-white font-bold text-base tracking-wide mb-1 display-font truncate" style={{ color: '#ffffff' }}>
+                <div className="text-white font-extrabold text-lg sm:text-l md:text-xl tracking-wider mb-1 display-font truncate" style={{ color: '#ffffff' }}>
                   {sessionTitle || "ASSESSMENT REPORT"}
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
@@ -236,15 +322,15 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                 </div>
              </div>
              <div className="text-right shrink-0">
-                <div className="display-font text-lg font-bold tracking-wider px-3 py-1 bg-white/10 text-white rounded-sm border border-white/10" style={{ color: '#ffffff' }}>
-                  {result.accuracy >= 80 ? 'EXCELLENT' : result.accuracy >= 60 ? 'PASS' : 'RETRY'}
+                <div className={`display-font text-xs sm:text-sm font-bold tracking-wider px-3 py-1.5 rounded-sm border ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+                  {evalInfo.rankText} • {evalInfo.badgeText}
                 </div>
              </div>
           </div>
 
           <div className="flex-1 flex flex-col justify-between pt-6 bg-white" style={{ backgroundColor: '#ffffff' }}>
             {/* Statistics Cards */}
-            <div className="grid grid-cols-4 gap-4 mb-5" style={{ backgroundColor: '#ffffff' }}>
+            <div className="grid grid-cols-4 gap-4 mb-4" style={{ backgroundColor: '#ffffff' }}>
                {[
                  { label: '総合得点', val: `${result.score} / ${result.totalPoints}`, sub: 'SCORE', color: 'text-slate-900' },
                  { label: '正答率', val: `${result.accuracy.toFixed(1)}%`, sub: 'ACCURACY', color: 'text-indigo-600' },
@@ -257,6 +343,19 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                     {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
                  </div>
                ))}
+            </div>
+
+            {/* Individual Study Advice Commentary Box */}
+            <div className={`mb-4 p-3 bg-slate-50 border-l-4 ${evalInfo.cardBorder} rounded-r shadow-xs text-xs flex flex-col justify-center`} style={{ backgroundColor: '#f8fafc' }}>
+               <div className="flex items-center space-x-2 mb-1.5">
+                  <span className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">個人講評・学習アドバイス</span>
+                  <span className={`text-[8.5px] font-extrabold px-1.5 py-0.5 rounded leading-none ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+                     {evalInfo.rankText}
+                  </span>
+               </div>
+               <p className="text-slate-655 leading-relaxed font-sans text-[11px] font-medium" style={{ color: '#475569' }}>
+                  {evalInfo.comment}
+               </p>
             </div>
 
             {/* Competency Balanced Scorecard */}
@@ -451,20 +550,20 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
 
       {/* Header - Academic Elegance */}
       <div className={`bg-[#0f172a] ${pHeader} flex items-center shrink-0 avoid-break`} style={{ backgroundColor: '#0f172a' }}>
-         <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+         <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
             {formatClassAndNumber(result.student)}
          </div>
-         <div className="flex-1">
-            <div className="text-white font-bold text-base tracking-wide mb-1 display-font truncate" style={{ color: '#ffffff' }}>
+         <div className="flex-1 min-w-0">
+            <div className="text-white font-extrabold text-lg sm:text-xl tracking-wider mb-1 display-font truncate" style={{ color: '#ffffff' }}>
               {sessionTitle || "ASSESSMENT REPORT"}
             </div>
-            <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font" style={{ color: '#ffffff' }}>
+            <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
               {result.student.name}
             </h2>
          </div>
-         <div className="text-right">
-            <div className="display-font text-xl font-bold tracking-wider px-3 py-1 bg-white/10 text-white rounded-sm border border-white/10" style={{ color: '#ffffff' }}>
-              {result.accuracy >= 80 ? 'EXCELLENT' : result.accuracy >= 60 ? 'PASS' : 'RETRY'}
+         <div className="text-right shrink-0">
+            <div className={`display-font text-xs sm:text-sm font-bold tracking-wider px-3 py-1.5 rounded-sm border ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+              {evalInfo.rankText} • {evalInfo.badgeText}
             </div>
          </div>
       </div>
@@ -485,6 +584,19 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
                 {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
              </div>
            ))}
+        </div>
+
+        {/* Individual Study Advice Commentary Box */}
+        <div className={`mb-4 p-3.5 bg-slate-50 border-l-4 ${evalInfo.cardBorder} rounded-r shadow-xs text-xs flex flex-col justify-center`} style={{ backgroundColor: '#f8fafc' }}>
+           <div className="flex items-center space-x-2 mb-1.5">
+              <span className="text-[9.5px] font-bold text-slate-500 uppercase tracking-wider">個人講評・学習アドバイス</span>
+              <span className={`text-[8.5px] font-extrabold px-1.5 py-0.5 rounded leading-none ${evalInfo.badgeBg}`} style={{ borderColor: evalInfo.badgeColorHex }}>
+                 {evalInfo.rankText}
+              </span>
+           </div>
+           <p className="text-slate-655 leading-relaxed font-sans text-[11px] font-medium" style={{ color: '#475569' }}>
+              {evalInfo.comment}
+           </p>
         </div>
 
         {/* Competency Balanced Scorecard */}

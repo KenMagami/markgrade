@@ -375,7 +375,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
             id,
             name: name || `生徒 ${paddedNum}`,
             class: `${grade}年${cls}組`,
-          };
+            number: num,
+          } as Student;
         })
         .filter((s): s is Student => s !== null);
       setStudents(parsed);

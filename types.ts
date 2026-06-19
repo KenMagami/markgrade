@@ -3,6 +3,7 @@ export interface Student {
   id: string;
   name: string;
   class: string;
+  number?: string;
 }
 
 export type CompetencyType = 'none' | 'knowledge' | 'thinking' | 'attitude';
