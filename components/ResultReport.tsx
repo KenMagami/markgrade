@@ -53,6 +53,13 @@ const TableRow: React.FC<TableRowProps> = ({ d, pyTable, fontSizeMain, fontSizeS
   </tr>
 );
 
+const formatClassAndNumber = (student: { id: string; class: string }) => {
+  const cls = student.class && student.class !== '-' ? student.class : '';
+  const num = student.id || '';
+  const numStr = num.includes('番') ? num : (num ? `${num}番` : '');
+  return `${cls} ${numStr}`.trim() || 'ー年ー組ー番';
+};
+
 export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle }) => {
   const competencyColors: Record<CompetencyType, string> = {
     none: 'text-slate-400',
@@ -164,6 +171,256 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
     details.slice(i * itemsPerCol, (i + 1) * itemsPerCol)
   );
 
+  if (totalQs > 100) {
+    const cohort1 = details.slice(0, 100);
+    const cohort2 = details.slice(100);
+
+    const colCount1 = 3;
+    const itemsPerCol1 = Math.ceil(cohort1.length / colCount1);
+    const columns1 = Array.from({ length: colCount1 }, (_, i) => 
+      cohort1.slice(i * itemsPerCol1, (i + 1) * itemsPerCol1)
+    );
+
+    const colCount2 = 3;
+    const itemsPerCol2 = Math.ceil(cohort2.length / colCount2);
+    const columns2 = Array.from({ length: colCount2 }, (_, i) => 
+      cohort2.slice(i * itemsPerCol2, (i + 1) * itemsPerCol2)
+    );
+
+    return (
+      <div 
+        className="bg-white text-slate-800 shadow-none p-0" 
+        style={{ 
+          width: '100%', 
+          backgroundColor: '#ffffff',
+          boxSizing: 'border-box',
+          WebkitPrintColorAdjust: 'exact',
+        }}
+      >
+        <style>{`
+          @media print {
+            @page { size: A4; margin: 0; }
+            body { -webkit-print-color-adjust: exact; background: white !important; }
+            .page-break-before { page-break-before: always; }
+            .avoid-break { page-break-inside: avoid; }
+          }
+        `}</style>
+
+        {/* PAGE 1: FRONT (1-100) */}
+        <div 
+          style={{
+            minHeight: '277mm',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff',
+            borderBottom: '8px solid #4f46e5',
+            padding: '24px'
+          }}
+          className="bg-white border-b-8 border-indigo-600 Page1"
+        >
+          {/* Header - Academic Elegance */}
+          <div className="bg-[#0f172a] p-5 flex items-center shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a' }}>
+             <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide shrink-0" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+                {formatClassAndNumber(result.student)}
+             </div>
+             <div className="flex-1 min-w-0">
+                <div className="text-white font-bold text-base tracking-wide mb-1 display-font truncate" style={{ color: '#ffffff' }}>
+                  {sessionTitle || "ASSESSMENT REPORT"}
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
+                  {result.student.name}
+                </h2>
+                <div className="text-indigo-400 font-semibold text-[10px] tracking-widest uppercase truncate" style={{ color: '#818cf8' }}>
+                  表面 (1〜100問)
+                </div>
+             </div>
+             <div className="text-right shrink-0">
+                <div className="display-font text-lg font-bold tracking-wider px-3 py-1 bg-white/10 text-white rounded-sm border border-white/10" style={{ color: '#ffffff' }}>
+                  {result.accuracy >= 80 ? 'EXCELLENT' : result.accuracy >= 60 ? 'PASS' : 'RETRY'}
+                </div>
+             </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-between pt-6 bg-white" style={{ backgroundColor: '#ffffff' }}>
+            {/* Statistics Cards */}
+            <div className="grid grid-cols-4 gap-4 mb-5" style={{ backgroundColor: '#ffffff' }}>
+               {[
+                 { label: '総合得点', val: `${result.score} / ${result.totalPoints}`, sub: 'SCORE', color: 'text-slate-900' },
+                 { label: '正答率', val: `${result.accuracy.toFixed(1)}%`, sub: 'ACCURACY', color: 'text-indigo-600' },
+                 { label: '正解問題数', val: `${result.details.filter(d => d.isCorrect).length}`, sub: `OF ${result.details.length} ITEMS`, color: 'text-slate-900' },
+                 { label: 'テスト平均正答率', val: `${(result.details.reduce((acc, d) => acc + (d.overallAccuracy || 0), 0) / result.details.length).toFixed(1)}%`, sub: 'AVERAGE', color: 'text-slate-400' }
+               ].map((stat, i) => (
+                 <div key={i} className="p-2 border-l-4 border-slate-200 bg-slate-50 rounded-r shadow-xs" style={{ backgroundColor: '#f8fafc' }}>
+                    <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-widest mb-1" style={{ color: '#64748b' }}>{stat.label}</p>
+                    <p className={`display-font font-bold text-sm leading-none ${stat.color}`}>{stat.val}</p>
+                    {stat.sub && <p className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider" style={{ color: '#94a3b8' }}>{stat.sub}</p>}
+                 </div>
+               ))}
+            </div>
+
+            {/* Competency Balanced Scorecard */}
+            {activeCompetencies.length > 0 && (
+              <div className="grid grid-cols-3 gap-4 mb-5" style={{ backgroundColor: '#ffffff' }}>
+                 {activeCompetencies.map((key) => {
+                   const comp = result.competencyResults[key];
+                   return (
+                     <div key={key} className="p-3 border border-slate-100 rounded-lg relative" style={{ backgroundColor: competencyBg[key] }}>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1" style={{ color: '#64748b' }}>{comp.label}</p>
+                        <div className="flex justify-between items-baseline">
+                           <span className={`display-font text-sm font-bold ${competencyColors[key]}`}>{comp.percentage.toFixed(0)}%</span>
+                           <span className="text-[9px] font-semibold text-slate-400" style={{ color: '#94a3b8' }}>{comp.score} / {comp.total} 点</span>
+                        </div>
+                        <div className="w-full bg-slate-200 h-1 mt-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#e2e8f0' }}>
+                           <div className={`h-full ${barColors[key]} transition-all`} style={{ width: `${comp.percentage}%` }}></div>
+                        </div>
+                     </div>
+                   );
+                 })}
+              </div>
+            )}
+
+            {/* Detailed Score Table */}
+            <div className="flex-1" style={{ backgroundColor: '#ffffff' }}>
+              <div className="flex items-center space-x-3 border-b border-slate-200 mb-3 pb-1.5">
+                <span className="display-font font-semibold text-[9px] uppercase text-slate-400 tracking-widest" style={{ color: '#94a3b8' }}>Detailed Scoring Matrix (1〜100問)</span>
+                <div className="flex-1 h-px bg-slate-100" style={{ backgroundColor: '#f1f5f9' }}></div>
+              </div>
+              <div className="grid grid-cols-3 gap-5" style={{ backgroundColor: '#ffffff' }}>
+                {columns1.map((colItems, idx) => (
+                   <div key={idx} className="" style={{ backgroundColor: '#ffffff' }}>
+                     <table className="w-full text-left table-fixed border-collapse">
+                       <thead>
+                         <TableHeader pyHeader="4px" fontSizeHeader="9px" isCompact={true} />
+                       </thead>
+                       <tbody style={{ backgroundColor: '#ffffff' }}>
+                         {colItems.map((d) => (
+                           <TableRow 
+                             key={d.questionNumber} 
+                             d={d} 
+                             pyTable="3.5px" 
+                             fontSizeMain="9.5px" 
+                             fontSizeSub="8.5px" 
+                           />
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Report Footer */}
+            <div className="flex justify-between items-end pt-3 border-t border-slate-100 mt-4 shrink-0" style={{ backgroundColor: '#ffffff' }}>
+               <div className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider" style={{ color: '#94a3b8' }}>
+                 Report issued by MarkGrade System • Accurate Grading Logs
+               </div>
+               <div className="bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-sm display-font font-bold text-[9px] uppercase tracking-wide border border-slate-200" style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
+                 1 / 2 ページ (表面)
+               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* PAGE 2: BACK (101-200) */}
+        <div 
+          style={{
+            pageBreakBefore: 'always',
+            minHeight: '277mm',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: '#ffffff',
+            borderBottom: '8px solid #4f46e5',
+            padding: '24px'
+          }}
+          className="bg-white border-b-8 border-indigo-600 Page2 page-break-before"
+        >
+          {/* Header - Academic Elegance */}
+          <div className="bg-[#1e293b] p-4 flex items-center shrink-0 rounded-t-sm" style={{ backgroundColor: '#1e293b' }}>
+             <div className="bg-indigo-500 text-white px-3 py-1 font-bold text-xs rounded-sm mr-5 display-font tracking-wide shrink-0" style={{ backgroundColor: '#6366f1', color: '#ffffff' }}>
+                {formatClassAndNumber(result.student)}
+             </div>
+             <div className="flex-1 min-w-0">
+                <div className="text-white font-bold text-base tracking-wide mb-1 display-font truncate" style={{ color: '#ffffff' }}>
+                  {sessionTitle || "ASSESSMENT REPORT"}
+                </div>
+                <h3 className="text-xl font-bold text-white mb-0.5 tracking-tight display-font truncate" style={{ color: '#ffffff' }}>
+                  {result.student.name}
+                </h3>
+                <div className="text-indigo-300 font-semibold text-[10px] tracking-widest uppercase truncate" style={{ color: '#a5b4fc' }}>
+                  裏面 (101問以降)
+                </div>
+             </div>
+             <div className="text-right shrink-0">
+                <div className="display-font text-xs font-semibold tracking-wider text-slate-300">
+                  MarkGrade Analysis Logs
+                </div>
+             </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-between pt-6 bg-white" style={{ backgroundColor: '#ffffff' }}>
+            
+            {/* Detailed Score Table */}
+            <div className="flex-1" style={{ backgroundColor: '#ffffff' }}>
+              <div className="flex items-center space-x-3 border-b border-slate-200 mb-3 pb-1.5">
+                <span className="display-font font-semibold text-[9px] uppercase text-slate-400 tracking-widest" style={{ color: '#94a3b8' }}>Detailed Scoring Matrix (101問〜)</span>
+                <div className="flex-1 h-px bg-slate-100" style={{ backgroundColor: '#f1f5f9' }}></div>
+              </div>
+              <div className="grid grid-cols-3 gap-5" style={{ backgroundColor: '#ffffff' }}>
+                {columns2.map((colItems, idx) => (
+                   <div key={idx} className="" style={{ backgroundColor: '#ffffff' }}>
+                     <table className="w-full text-left table-fixed border-collapse">
+                       <thead>
+                         <TableHeader pyHeader="4px" fontSizeHeader="9px" isCompact={true} />
+                       </thead>
+                       <tbody style={{ backgroundColor: '#ffffff' }}>
+                         {colItems.map((d) => (
+                           <TableRow 
+                             key={d.questionNumber} 
+                             d={d} 
+                             pyTable="3.5px" 
+                             fontSizeMain="9.5px" 
+                             fontSizeSub="8.5px" 
+                           />
+                         ))}
+                       </tbody>
+                     </table>
+                   </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Visual Score Map */}
+            <div className="bg-slate-50 p-3 rounded border border-slate-100 mt-4 shrink-0" style={{ backgroundColor: '#f8fafc' }}>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">設問ごとの正誤分布マップ (全 {details.length} 問)</p>
+              <div className="flex h-3 gap-1">
+                {result.details.map((d, i) => (
+                  <div 
+                    key={i} 
+                    className="flex-1 rounded-xs transition-all hover:scale-115" 
+                    title={`Q${d.questionNumber}: ${d.isCorrect ? '正解' : '不正解'}`}
+                    style={{ backgroundColor: d.isCorrect ? '#10b981' : '#f43f5e' }} 
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Report Footer */}
+            <div className="flex justify-between items-end pt-3 border-t border-slate-100 mt-4 shrink-0" style={{ backgroundColor: '#ffffff' }}>
+               <div className="text-[8px] text-slate-400 font-semibold uppercase tracking-wider" style={{ color: '#94a3b8' }}>
+                 Report issued by MarkGrade System • Accurate Grading Logs
+               </div>
+               <div className="bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-sm display-font font-bold text-[9px] uppercase tracking-wide border border-slate-200" style={{ backgroundColor: '#f1f5f9', color: '#475569' }}>
+                 2 / 2 ページ (裏面)
+               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="bg-white text-slate-800 shadow-none p-0 border-b-8 border-indigo-600" 
@@ -194,16 +451,16 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
 
       {/* Header - Academic Elegance */}
       <div className={`bg-[#0f172a] ${pHeader} flex items-center shrink-0 avoid-break`} style={{ backgroundColor: '#0f172a' }}>
-         <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-lg rounded-sm mr-6 display-font tracking-wide" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
-            ID: {result.student.id}
+         <div className="bg-indigo-600 text-white px-4 py-2 font-bold text-sm rounded-sm mr-6 display-font tracking-wide" style={{ backgroundColor: '#4f46e5', color: '#ffffff' }}>
+            {formatClassAndNumber(result.student)}
          </div>
          <div className="flex-1">
-            <h2 className="text-2xl font-bold text-white mb-1.5 tracking-tight display-font" style={{ color: '#ffffff' }}>
+            <div className="text-white font-bold text-base tracking-wide mb-1 display-font truncate" style={{ color: '#ffffff' }}>
+              {sessionTitle || "ASSESSMENT REPORT"}
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-0.5 tracking-tight display-font" style={{ color: '#ffffff' }}>
               {result.student.name}
             </h2>
-            <div className="text-indigo-400 font-semibold text-[10px] tracking-widest uppercase" style={{ color: '#818cf8' }}>
-              {sessionTitle || "ASSESSMENT REPORT"} • {result.student.class}
-            </div>
          </div>
          <div className="text-right">
             <div className="display-font text-xl font-bold tracking-wider px-3 py-1 bg-white/10 text-white rounded-sm border border-white/10" style={{ color: '#ffffff' }}>

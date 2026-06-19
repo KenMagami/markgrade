@@ -347,28 +347,70 @@ const App: React.FC = () => {
   const overallQuestionStats = useMemo(() => {
     const stats: Record<number, number> = {};
     if (rawAnswers.length === 0) return stats;
+    
+    // Filter out student answers representing students who didn't take the test (未受験の0点, i.e., those who have no answers filled in)
+    const activeRawAnswers = rawAnswers.filter(ans => {
+      if (!ans || !ans.answers) return false;
+      const keys = Object.keys(ans.answers);
+      if (keys.length === 0) return false;
+      return keys.some(k => {
+        const value = ans.answers[Number(k)];
+        return value !== undefined && value !== null && value.trim() !== "";
+      });
+    });
+
+    if (activeRawAnswers.length === 0) {
+      questions.forEach(q => {
+        stats[q.number] = 0;
+      });
+      return stats;
+    }
+
     questions.forEach(q => {
-      let correct = 0; rawAnswers.forEach(ans => { if (ans.answers[q.number] === q.correctAnswer) correct++; });
-      stats[q.number] = (correct / rawAnswers.length) * 100;
+      let correct = 0;
+      activeRawAnswers.forEach(ans => {
+        if (ans.answers[q.number] === q.correctAnswer) correct++;
+      });
+      stats[q.number] = (correct / activeRawAnswers.length) * 100;
     });
     return stats;
   }, [rawAnswers, questions]);
 
   const overallAverage = useMemo(() => {
-    if (results.length === 0) return 0;
-    return results.reduce((acc, r) => acc + r.score, 0) / results.length;
-  }, [results]);
+    const activeResults = results.filter(r => {
+      const ans = rawAnswers.find(a => a.studentId === r.student.id);
+      if (!ans || !ans.answers) return false;
+      const keys = Object.keys(ans.answers);
+      if (keys.length === 0) return false;
+      return keys.some(k => {
+        const val = ans.answers[Number(k)];
+        return val !== undefined && val !== null && val.trim() !== "";
+      });
+    });
+    if (activeResults.length === 0) return 0;
+    return activeResults.reduce((acc, r) => acc + r.score, 0) / activeResults.length;
+  }, [results, rawAnswers]);
 
   const classStats = useMemo(() => {
     const stats: Record<string, { totalScore: number; count: number }> = {};
-    results.forEach(r => {
+    const activeResults = results.filter(r => {
+      const ans = rawAnswers.find(a => a.studentId === r.student.id);
+      if (!ans || !ans.answers) return false;
+      const keys = Object.keys(ans.answers);
+      if (keys.length === 0) return false;
+      return keys.some(k => {
+        const val = ans.answers[Number(k)];
+        return val !== undefined && val !== null && val.trim() !== "";
+      });
+    });
+    activeResults.forEach(r => {
       const cls = r.student.class;
       if (!stats[cls]) stats[cls] = { totalScore: 0, count: 0 };
       stats[cls].totalScore += r.score;
       stats[cls].count += 1;
     });
     return stats;
-  }, [results]);
+  }, [results, rawAnswers]);
 
   const getFullDetailResult = useCallback((r: ScoringResult) => {
     const ans = rawAnswers.find(a => a.studentId === r.student.id);

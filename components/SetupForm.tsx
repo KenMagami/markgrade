@@ -151,23 +151,39 @@ export const SetupForm: React.FC<SetupFormProps> = ({
     ...HS_ETC_SUBJECTS,
   ];
 
+  const TERM_LIST = ["1学期", "2学期", "3学期", "前期", "後期"];
+  const EXAM_TYPE_LIST = [
+    "中間テスト",
+    "期末テスト",
+    "学年末テスト",
+    "実力テスト",
+    "小テスト",
+    "模擬試験",
+  ];
+
   const [academicYear, setAcademicYear] = useState("");
   const [grade, setGrade] = useState("");
   const [course, setCourse] = useState("");
+  const [term, setTerm] = useState("");
+  const [examType, setExamType] = useState("");
   const [subject, setSubject] = useState("");
 
   const [isCustomYear, setIsCustomYear] = useState(false);
   const [isCustomGrade, setIsCustomGrade] = useState(false);
   const [isCustomCourse, setIsCustomCourse] = useState(false);
+  const [isCustomTerm, setIsCustomTerm] = useState(false);
+  const [isCustomExamType, setIsCustomExamType] = useState(false);
   const [isCustomSubject, setIsCustomSubject] = useState(false);
 
   useEffect(() => {
-    if (sessionTitle && !academicYear && !grade && !course && !subject) {
+    if (sessionTitle && !academicYear && !grade && !course && !subject && !term && !examType) {
       const parts = sessionTitle.split(" ");
       if (parts.length >= 2) {
         let yr = "";
         let gd = "";
         let cs = "";
+        let tm = "";
+        let ex = "";
         let sj = "";
         parts.forEach((p, idx) => {
           if (p.includes("年度") || /^[0-9０-９]{4}$/.test(p)) {
@@ -177,6 +193,10 @@ export const SetupForm: React.FC<SetupFormProps> = ({
             p.length <= 4
           ) {
             gd = p;
+          } else if (p.includes("学期") || p === "前期" || p === "後期") {
+            tm = p;
+          } else if (p.includes("テスト") || p.includes("試験")) {
+            ex = p;
           } else if (idx === parts.length - 1) {
             sj = p;
           } else {
@@ -200,6 +220,14 @@ export const SetupForm: React.FC<SetupFormProps> = ({
           setCourse(cs);
           if (!COURSES_LIST.includes(cs)) setIsCustomCourse(true);
         }
+        if (tm) {
+          setTerm(tm);
+          if (!TERM_LIST.includes(tm)) setIsCustomTerm(true);
+        }
+        if (ex) {
+          setExamType(ex);
+          if (!EXAM_TYPE_LIST.includes(ex)) setIsCustomExamType(true);
+        }
         if (sj) {
           setSubject(sj);
           if (!FLAT_SUBJECTS.includes(sj)) setIsCustomSubject(true);
@@ -216,14 +244,18 @@ export const SetupForm: React.FC<SetupFormProps> = ({
     year: string,
     grd: string,
     crs: string,
+    trm: string,
+    etyp: string,
     sbj: string,
   ) => {
     setAcademicYear(year);
     setGrade(grd);
     setCourse(crs);
+    setTerm(trm);
+    setExamType(etyp);
     setSubject(sbj);
 
-    const parts = [year, grd, crs, sbj].map((s) => s?.trim()).filter(Boolean);
+    const parts = [year, grd, crs, trm, etyp, sbj].map((s) => s?.trim()).filter(Boolean);
 
     setSessionTitle(parts.join(" "));
   };
@@ -621,7 +653,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 {/* 年度 */}
                 <div className="space-y-1.5">
                   <label className="text-slate-500 font-bold text-xs tracking-wider">
@@ -637,6 +669,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             e.target.value,
                             grade,
                             course,
+                            term,
+                            examType,
                             subject,
                           )
                         }
@@ -651,6 +685,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             YEARS_LIST[0],
                             grade,
                             course,
+                            term,
+                            examType,
                             subject,
                           );
                         }}
@@ -668,7 +704,7 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                         if (val === "__custom__") {
                           setIsCustomYear(true);
                         } else {
-                          updateSessionTitleParts(val, grade, course, subject);
+                          updateSessionTitleParts(val, grade, course, term, examType, subject);
                         }
                       }}
                       className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-550 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
@@ -699,6 +735,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             e.target.value,
                             course,
+                            term,
+                            examType,
                             subject,
                           )
                         }
@@ -713,6 +751,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             GRADES_LIST[0],
                             course,
+                            term,
+                            examType,
                             subject,
                           );
                         }}
@@ -734,6 +774,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             val,
                             course,
+                            term,
+                            examType,
                             subject,
                           );
                         }
@@ -766,6 +808,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             grade,
                             e.target.value,
+                            term,
+                            examType,
                             subject,
                           )
                         }
@@ -780,6 +824,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             grade,
                             COURSES_LIST[0],
+                            term,
+                            examType,
                             subject,
                           );
                         }}
@@ -801,6 +847,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             grade,
                             val,
+                            term,
+                            examType,
                             subject,
                           );
                         }
@@ -811,6 +859,152 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                       {COURSES_LIST.map((cs) => (
                         <option key={cs} value={cs}>
                           {cs}
+                        </option>
+                      ))}
+                      <option value="__custom__">その他 (自由入力)...</option>
+                    </select>
+                  )}
+                </div>
+
+                {/* 学期 */}
+                <div className="space-y-1.5">
+                  <label className="text-slate-500 font-bold text-xs tracking-wider">
+                    学期
+                  </label>
+                  {isCustomTerm ? (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        value={term}
+                        onChange={(e) =>
+                          updateSessionTitleParts(
+                            academicYear,
+                            grade,
+                            course,
+                            e.target.value,
+                            examType,
+                            subject,
+                          )
+                        }
+                        placeholder="例: 1学期"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 transition-all font-sans"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomTerm(false);
+                          updateSessionTitleParts(
+                            academicYear,
+                            grade,
+                            course,
+                            TERM_LIST[0],
+                            examType,
+                            subject,
+                          );
+                        }}
+                        className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center transition-colors mt-1"
+                      >
+                        <i className="fa-solid fa-list-check mr-1"></i>{" "}
+                        リストから選択
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={term}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__custom__") {
+                          setIsCustomTerm(true);
+                        } else {
+                          updateSessionTitleParts(
+                            academicYear,
+                            grade,
+                            course,
+                            val,
+                            examType,
+                            subject,
+                          );
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-550 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="">選択してください</option>
+                      {TERM_LIST.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                      <option value="__custom__">その他 (自由入力)...</option>
+                    </select>
+                  )}
+                </div>
+
+                {/* テスト名・区分 */}
+                <div className="space-y-1.5">
+                  <label className="text-slate-500 font-bold text-xs tracking-wider">
+                    テスト区分
+                  </label>
+                  {isCustomExamType ? (
+                    <div className="space-y-1">
+                      <input
+                        type="text"
+                        value={examType}
+                        onChange={(e) =>
+                          updateSessionTitleParts(
+                            academicYear,
+                            grade,
+                            course,
+                            term,
+                            e.target.value,
+                            subject,
+                          )
+                        }
+                        placeholder="例: 中間テスト"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 transition-all font-sans"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomExamType(false);
+                          updateSessionTitleParts(
+                            academicYear,
+                            grade,
+                            course,
+                            term,
+                            EXAM_TYPE_LIST[0],
+                            subject,
+                          );
+                        }}
+                        className="text-[10px] text-indigo-600 font-bold hover:underline flex items-center transition-colors mt-1"
+                      >
+                        <i className="fa-solid fa-list-check mr-1"></i>{" "}
+                        リストから選択
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={examType}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__custom__") {
+                          setIsCustomExamType(true);
+                        } else {
+                          updateSessionTitleParts(
+                            academicYear,
+                            grade,
+                            course,
+                            term,
+                            val,
+                            subject,
+                          );
+                        }
+                      }}
+                      className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-550 focus:ring-1 focus:ring-indigo-500 transition-all cursor-pointer"
+                    >
+                      <option value="">選択してください</option>
+                      {EXAM_TYPE_LIST.map((et) => (
+                        <option key={et} value={et}>
+                          {et}
                         </option>
                       ))}
                       <option value="__custom__">その他 (自由入力)...</option>
@@ -833,6 +1027,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             grade,
                             course,
+                            term,
+                            examType,
                             e.target.value,
                           )
                         }
@@ -847,6 +1043,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             grade,
                             course,
+                            term,
+                            examType,
                             FLAT_SUBJECTS[0],
                           );
                         }}
@@ -868,6 +1066,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                             academicYear,
                             grade,
                             course,
+                            term,
+                            examType,
                             val,
                           );
                         }
@@ -943,6 +1143,8 @@ export const SetupForm: React.FC<SetupFormProps> = ({
                         setAcademicYear("");
                         setGrade("");
                         setCourse("");
+                        setTerm("");
+                        setExamType("");
                         setSubject("");
                         setSessionTitle("");
                       }}
