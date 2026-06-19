@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Student, Question, StudentAnswer, ScoringResult, ArchiveData, CompetencyType, COMPETENCY_LABELS, RangeSlot } from './types';
 import { SetupForm } from './components/SetupForm';
 import { ResultReport } from './components/ResultReport';
+import { StandingsReport } from './components/StandingsReport';
 
 const APP_VERSION = "v2.0.0-ELEGANT-EDITION";
 
@@ -128,7 +129,7 @@ const App: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const [exportMode, setExportMode] = useState<'all' | 'single' | 'selected' | null>(null);
+  const [exportMode, setExportMode] = useState<'all' | 'single' | 'selected' | 'standings' | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showTutorial, setShowTutorial] = useState(false);
@@ -138,6 +139,11 @@ const App: React.FC = () => {
   
   // Persistence for range slots (Grand Question settings)
   const [rangeSlots, setRangeSlots] = useState<RangeSlot[]>([]);
+  const [standingsActivePage, setStandingsActivePage] = useState<number>(0);
+
+  useEffect(() => {
+    setStandingsActivePage(0);
+  }, [filterClass, sortBy]);
 
   const refreshArchives = useCallback(() => {
     try {
@@ -434,6 +440,85 @@ const App: React.FC = () => {
     return data.sort((a, b) => a.student.id.localeCompare(b.student.id));
   }, [results, filterClass, sortBy, rankMap]);
 
+  const standingsIsOnePage = useMemo(() => {
+    if (sortBy === 'id') return false; // 番号順は必ずクラス別マルチページ
+    return finalSortedStandings.length <= 15;
+  }, [sortBy, finalSortedStandings]);
+
+  const standingsItemsPerPage = sortBy === 'score' ? 40 : 9999;
+
+  const standingsPages = useMemo(() => {
+    if (standingsIsOnePage) {
+      return [finalSortedStandings];
+    }
+    
+    if (sortBy === 'score') {
+      const chunks: ScoringResult[][] = [];
+      for (let i = 0; i < finalSortedStandings.length; i += 40) {
+        chunks.push(finalSortedStandings.slice(i, i + 40));
+      }
+      return chunks;
+    } else {
+      // クラス毎に分割
+      const classMap: Record<string, ScoringResult[]> = {};
+      const classes: string[] = [];
+      finalSortedStandings.forEach(r => {
+        const cls = r.student.class || '未設定';
+        if (!classMap[cls]) {
+          classMap[cls] = [];
+          classes.push(cls);
+        }
+        classMap[cls].push(r);
+      });
+      // クラス名をソート
+      classes.sort((a, b) => a.localeCompare(b));
+      
+      const chunks: ScoringResult[][] = [];
+      classes.forEach(cls => {
+        const clsResults = classMap[cls];
+        // 1クラス最大40人として、万が一40人を超える場合はクラス内でも分割
+        for (let i = 0; i < clsResults.length; i += 40) {
+          chunks.push(clsResults.slice(i, i + 40));
+        }
+      });
+      return chunks;
+    }
+  }, [finalSortedStandings, standingsIsOnePage, sortBy]);
+
+  const distributionsForUI = useMemo(() => {
+    const list = filterClass ? results.filter(r => r.student.class === filterClass) : results;
+    const distributionMap: Record<string, { count: number; range: string; color: string; rankText: string }> = {
+      'PERFECT': { count: 0, range: '100%', color: '#4f46e5', rankText: '秀 (S)' },
+      'EXCELLENT': { count: 0, range: '90-99%', color: '#10b981', rankText: '優 (A)' },
+      'VERY GOOD': { count: 0, range: '80-89%', color: '#0284c7', rankText: '良 (B)' },
+      'GOOD': { count: 0, range: '70-79%', color: '#0d9488', rankText: '良好 (C+)' },
+      'PASS': { count: 0, range: '60-69%', color: '#6366f1', rankText: '標準 (C)' },
+      'NEAR PASS': { count: 0, range: '45-59%', color: '#f59e0b', rankText: '要努力 (D)' },
+      'KEEP TRYING': { count: 0, range: '45%未満', color: '#ef4444', rankText: '要努力 (E)' },
+    };
+
+    list.forEach(r => {
+      const accuracy = r.accuracy;
+      let gradeKey = 'KEEP TRYING';
+      if (accuracy === 100) gradeKey = 'PERFECT';
+      else if (accuracy >= 90) gradeKey = 'EXCELLENT';
+      else if (accuracy >= 80) gradeKey = 'VERY GOOD';
+      else if (accuracy >= 70) gradeKey = 'GOOD';
+      else if (accuracy >= 60) gradeKey = 'PASS';
+      else if (accuracy >= 45) gradeKey = 'NEAR PASS';
+
+      if (distributionMap[gradeKey]) {
+        distributionMap[gradeKey].count += 1;
+      }
+    });
+
+    return Object.entries(distributionMap).map(([badgeText, details]) => ({
+      badgeText,
+      ...details,
+      percentage: list.length > 0 ? (details.count / list.length) * 100 : 0,
+    }));
+  }, [results, filterClass]);
+
   const handleProcessAnswers = (answers: StudentAnswer[]) => {
     setRawAnswers(answers);
     const newResults: ScoringResult[] = answers.map(ans => {
@@ -601,11 +686,43 @@ const App: React.FC = () => {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const exportPDF = async (mode: 'all' | 'single' | 'selected') => {
+  const exportPDF = async (mode: 'all' | 'single' | 'selected' | 'standings') => {
     setShowExportModal(false);
     setIsExporting(true);
     setExportMode(mode);
     setExportProgress(0);
+
+    if (mode === 'standings') {
+      const opt = { 
+        margin: [0, 0, 0, 0], 
+        filename: `${sessionTitle || 'Grade_Analysis'}_Standings.pdf`, 
+        image: { type: 'jpeg', quality: 0.98 }, 
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          logging: false, 
+          backgroundColor: '#ffffff',
+          scrollY: 0
+        }, 
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+      try {
+        await new Promise(r => setTimeout(r, 800));
+        const html2pdf = (window as any).html2pdf;
+        setExportProgress(50);
+        const element = document.getElementById('pdf-page-standings');
+        if (element) {
+          await html2pdf().set(opt).from(element).save();
+        } else {
+          throw new Error('Standings page element not found');
+        }
+        setExportProgress(100);
+        await new Promise(r => setTimeout(r, 300));
+      } catch (err) { alert("PDFの生成に失敗しました。"); } finally { setIsExporting(false); setExportProgress(0); setExportMode(null); }
+      return;
+    }
+
     const targets = mode === 'single' && selectedFullResult ? [selectedFullResult] : mode === 'selected' ? results.filter(r => selectedIds.has(r.student.id)).sort((a, b) => a.student.id.localeCompare(b.student.id)) : [...results].sort((a, b) => a.student.id.localeCompare(b.student.id));
     if (targets.length === 0) { setIsExporting(false); return; }
     const opt = { 
@@ -644,14 +761,32 @@ const App: React.FC = () => {
     const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
     const groups = Array.from(new Set(questions.map(q => q.group).filter(g => g !== ""))).sort();
     const competencies = (Object.keys(COMPETENCY_LABELS) as CompetencyType[]).filter(k => k !== 'none');
-    let header = "学籍番号,クラス,氏名,合計点,正答率(%)";
+    let header = "出席番号,クラス,氏名,合計点,正答率(%)";
     groups.forEach(g => header += `,大問${g}`);
     competencies.forEach(k => header += `,${COMPETENCY_LABELS[k]}`);
     header += "\n";
     let csv = header;
     results.forEach(r => {
       const studentAns = rawAnswers.find(a => a.studentId === r.student.id);
-      let row = `${r.student.id},${r.student.class},${r.student.name},${r.score},${r.accuracy.toFixed(1)}`;
+      let studentNumber = r.student.number || r.student.id;
+      if (r.student.number !== undefined && r.student.number !== null && r.student.number !== '') {
+        const digits = String(r.student.number).replace(/\D/g, '');
+        if (digits) {
+          const parsed = parseInt(digits, 10);
+          if (!isNaN(parsed)) {
+            studentNumber = String(parsed);
+          }
+        }
+      } else {
+        const match = r.student.id.match(/\d+$/);
+        if (match) {
+          const parsed = parseInt(match[0], 10);
+          if (!isNaN(parsed)) {
+            studentNumber = String(parsed);
+          }
+        }
+      }
+      let row = `${studentNumber},${r.student.class},${r.student.name},${r.score},${r.accuracy.toFixed(1)}`;
       groups.forEach(g => {
         let groupScore = 0;
         questions.filter(q => q.group === g).forEach(q => { if (studentAns?.answers[q.number] === q.correctAnswer) groupScore += q.point; });
@@ -675,6 +810,7 @@ const App: React.FC = () => {
   const resultsForPdf = useMemo(() => {
     if (!isExporting) return [];
     if (exportMode === 'single' && selectedFullResult) return [selectedFullResult];
+    if (exportMode === 'standings') return [];
     let filtered = [...results];
     if (exportMode === 'selected') filtered = filtered.filter(r => selectedIds.has(r.student.id));
     return filtered.sort((a, b) => a.student.id.localeCompare(b.student.id));
@@ -791,8 +927,8 @@ const App: React.FC = () => {
               </div>
            </div>
            
-           <div id="pdf-render-zone" style={{ position: 'absolute', left: '-9999px', top: '0', width: '190mm', backgroundColor: '#ffffff', zIndex: -1, pointerEvents: 'none' }}>
-              {resultsForPdf.map((r) => (
+           <div id="pdf-render-zone" data-standings="pdf" style={{ position: 'absolute', left: '-9999px', top: '0', width: exportMode === 'standings' ? '210mm' : '190mm', backgroundColor: '#ffffff', zIndex: -1, pointerEvents: 'none' }}>{exportMode === 'standings' && <div id="pdf-page-standings" style={{ backgroundColor: '#ffffff', width: '210mm', margin: 0, padding: 0 }}><StandingsReport results={results} sessionTitle={sessionTitle} filterClass={filterClass} sortBy={sortBy} rankMap={rankMap} /></div>}
+              {exportMode !== 'standings' && resultsForPdf.map((r) => (
                 <div key={r.student.id} id={`pdf-page-${r.student.id}`} style={{ backgroundColor: '#ffffff', width: '190mm', margin: 0, padding: 0 }}>
                   <ResultReport result={getFullDetailResult(r)} sessionTitle={sessionTitle} />
                 </div>
@@ -1011,7 +1147,7 @@ const App: React.FC = () => {
                     {sortedClassNames.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                   <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-                    <button onClick={() => setSbSortBy('id')} className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-all ${sbSortBy === 'id' ? 'bg-white shadow-xs text-indigo-600' : 'text-slate-400'}`}>学籍番号順</button>
+                    <button onClick={() => setSbSortBy('id')} className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-all ${sbSortBy === 'id' ? 'bg-white shadow-xs text-indigo-600' : 'text-slate-400'}`}>出席番号順</button>
                     <button onClick={() => setSbSortBy('score')} className={`flex-1 py-1 text-[10px] font-bold rounded-md transition-all ${sbSortBy === 'score' ? 'bg-white shadow-xs text-indigo-600' : 'text-slate-400'}`}>点数成績順</button>
                   </div>
                 </div>
@@ -1050,81 +1186,219 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Lap 5: Standard general results standings list */}
+        {/* Lap 5: Standard general results standings list with interactive pagination mirroring the PDF */}
         {lap === 5 && (
           <div className="flex-1 flex flex-col overflow-hidden animate-[fadeIn_0.4s_ease-out]">
-            <div className="flex justify-between items-end mb-6">
+            <div className="flex justify-between items-end mb-4 shrink-0">
                <div>
                   <h1 className="text-2xl font-bold text-slate-850 tracking-tight display-font">{filterClass ? `${filterClass} 成績一覧` : (sessionTitle || "全体成績マトリクス・指標")}</h1>
                   <p className="text-indigo-600 text-xs font-medium tracking-wide mt-1">グレード分類 & レコード成績順一覧（一括書き出し・統計）</p>
                </div>
                <div className="flex space-x-2.5 items-center">
                   <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
-                    <button onClick={selectAllInStandings} className="px-3 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-white rounded transition-all">すべて選択</button>
-                    <button onClick={clearSelection} className="px-3 py-1 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:bg-white rounded transition-all">クリア</button>
+                     <button onClick={selectAllInStandings} className="px-3 py-1 text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-white rounded transition-all">すべて選択</button>
+                     <button onClick={clearSelection} className="px-3 py-1 text-xs font-semibold text-slate-400 hover:text-slate-600 hover:bg-white rounded transition-all">クリア</button>
                   </div>
                   <button onClick={() => triggerLapChange(2)} className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors"><i className="fa-solid fa-sliders mr-1.5 text-slate-450"></i>正誤基準を修正</button>
                   <button onClick={() => triggerLapChange(4)} className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors">個別レポート表示</button>
+                  <button onClick={() => exportPDF('standings')} className="bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 text-xs font-bold rounded-lg transition-all flex items-center shadow-md shadow-rose-600/10 ml-1.5 cursor-pointer"><i className="fa-solid fa-file-pdf mr-1.5"></i>グレード・成績順一覧をPDF化</button>
                   <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
                     {['score', 'id'].map(m => (<button key={m} onClick={() => setSortBy(m as any)} className={`px-4 py-1 text-[10px] font-bold rounded-md transition-all ${sortBy === m ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-400'}`}>{m === 'score' ? '成績順' : '番号順'}</button>))}
                   </div>
                </div>
             </div>
-            
-            {/* Student score lists rows */}
-            <div className="flex-1 overflow-y-auto compact-scroll space-y-2 pr-1">
-              {finalSortedStandings.map((r) => {
-                const absRank = rankMap.get(r.student.id) || 0;
-                return (
-                  <div key={r.student.id} className="grade-row">
-                    <div className="grade-checkbox-cell" onClick={() => toggleSelection(r.student.id)}>
-                      <div className={`checkbox-custom mr-0 shrink-0 ${selectedIds.has(r.student.id) ? 'checked' : ''}`}></div>
-                    </div>
-                    <div className={`grade-pos ${absRank === 1 ? 'top1' : absRank === 2 ? 'top2' : absRank === 3 ? 'top3' : 'text-slate-400'}`} onClick={() => { 
-                        const idx = sidebarList.findIndex(res => res.student.id === r.student.id);
-                        if (idx !== -1) setSelectedResultIndex(idx);
-                        triggerLapChange(4); 
-                      }}>{absRank}</div>
-                    <div className="grade-pts">{r.score} 点</div>
-                    <div className="grade-name-block" onClick={() => { 
-                        const idx = sidebarList.findIndex(res => res.student.id === r.student.id);
-                        if (idx !== -1) setSelectedResultIndex(idx);
-                        triggerLapChange(4); 
-                      }}>
-                       <div className="grade-team-color" style={{ backgroundColor: getClassColor(r.student.class) }}></div>
-                       <span className="grade-driver">{r.student.name}</span>
-                       <span className="grade-team">{r.student.class}</span>
-                    </div>
-                    <div className="grade-stat">{r.accuracy.toFixed(1)}%</div>
-                  </div>
-                );
-              })}
-            </div>
 
-            {/* Key general stats summary metrics at bottom */}
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-               <div className="bg-white p-4.5 rounded-xl border border-slate-200 border-l-4 border-l-indigo-650 shadow-xs">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">全体平均点 (Average Score)</p>
-                  <p className="text-2xl font-bold display-font text-indigo-600">{overallAverage.toFixed(1)}</p>
-               </div>
-               <div className="bg-white p-4.5 rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">受験総人数 (Total Candidates)</p>
-                  <p className="text-2xl font-bold display-font text-slate-700">{results.length}</p>
-               </div>
-               <div className="col-span-2 bg-white p-4.5 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
-                  <div className="flex items-center space-x-6">
-                    {sortedClassNames.slice(0, 4).map(cls => (
-                      <div key={cls} className="flex flex-col cursor-pointer hover:opacity-80 transition-all border-r border-slate-100 pr-5 last:border-0" onClick={() => setFilterClass(cls === filterClass ? null : cls)}>
-                        <span className="text-[10px] font-bold text-slate-400">{cls} 平均</span>
-                        <span className="font-bold text-base mt-0.5" style={{ color: getClassColor(cls) }}>
-                          { classStats[cls] ? (classStats[cls].totalScore / classStats[cls].count).toFixed(1) : "0.0" }
-                        </span>
+            {/* Pagination tabs to keep HTML layout preview identical to PDF pages */}
+            {!standingsIsOnePage && (
+              <div className="flex bg-slate-100/90 p-1.5 rounded-xl border border-slate-200 mb-4 items-center justify-between no-print shrink-0">
+                <div className="flex gap-1.5 overflow-x-auto compact-scroll">
+                  <button 
+                    onClick={() => setStandingsActivePage(0)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap shrink-0 ${standingsActivePage === 0 ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-200'}`}
+                  >
+                    <i className="fa-solid fa-chart-simple mr-1.5"></i>総合サマリー統計 (Page 1)
+                  </button>
+                  {standingsPages.map((pageData, idx) => {
+                    const firstItem = pageData[0];
+                    const label = sortBy === 'id' && firstItem 
+                      ? `${firstItem.student.class || '未設定'}クラス (Page ${idx + 2})`
+                      : `成績データ一覧 (${idx * 40 + 1}〜${Math.min((idx + 1) * 40, finalSortedStandings.length)}位) (Page ${idx + 2})`;
+                    return (
+                      <button 
+                        key={idx}
+                        onClick={() => setStandingsActivePage(idx + 1)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all whitespace-nowrap shrink-0 ${standingsActivePage === idx + 1 ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:bg-slate-200'}`}
+                      >
+                        <i className={`fa-solid ${sortBy === 'id' ? 'fa-graduation-cap' : 'fa-list-ol'} mr-1.5`}></i>{label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden md:block">
+                  全 {1 + standingsPages.length} ページ構成
+                </div>
+              </div>
+            )}
+
+            {/* Current Active view */}
+            {standingsIsOnePage ? (
+              // Simple layout for <= 15 items: render all together
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto compact-scroll space-y-2 pr-1">
+                  {finalSortedStandings.map((r) => {
+                    const absRank = rankMap.get(r.student.id) || 0;
+                    return (
+                      <div key={r.student.id} className="grade-row">
+                        <div className="grade-checkbox-cell" onClick={() => toggleSelection(r.student.id)}>
+                          <div className={`checkbox-custom mr-0 shrink-0 ${selectedIds.has(r.student.id) ? 'checked' : ''}`}></div>
+                        </div>
+                        <div className={`grade-pos ${absRank === 1 ? 'top1' : absRank === 2 ? 'top2' : absRank === 3 ? 'top3' : 'text-slate-400'}`} onClick={() => { 
+                            const idx = sidebarList.findIndex(res => res.student.id === r.student.id);
+                            if (idx !== -1) setSelectedResultIndex(idx);
+                            triggerLapChange(4); 
+                          }}>{absRank}</div>
+                        <div className="grade-pts">{r.score} 点</div>
+                        <div className="grade-name-block" onClick={() => { 
+                            const idx = sidebarList.findIndex(res => res.student.id === r.student.id);
+                            if (idx !== -1) setSelectedResultIndex(idx);
+                            triggerLapChange(4); 
+                          }}>
+                           <div className="grade-team-color" style={{ backgroundColor: getClassColor(r.student.class) }}></div>
+                           <span className="grade-driver">{r.student.name}</span>
+                           <span className="grade-team">{r.student.class}</span>
+                        </div>
+                        <div className="grade-stat">{r.accuracy.toFixed(1)}%</div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+
+                {/* Key general stats summary metrics at bottom */}
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0 no-print">
+                   <div className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-indigo-600 shadow-xs">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">全体平均点 (Average Score)</p>
+                      <p className="text-2xl font-bold display-font text-indigo-600">{overallAverage.toFixed(1)}</p>
+                   </div>
+                   <div className="bg-white p-4 rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">受験総人数 (Total Candidates)</p>
+                      <p className="text-2xl font-bold display-font text-slate-700">{results.length}</p>
+                   </div>
+                   <div className="col-span-2 bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+                      <div className="flex flex-wrap gap-4">
+                        {sortedClassNames.slice(0, 6).map(cls => (
+                          <div key={cls} className="flex flex-col cursor-pointer hover:opacity-80 transition-all" onClick={() => setFilterClass(cls === filterClass ? null : cls)}>
+                            <span className="text-[10px] font-bold text-slate-400">{cls} 平均</span>
+                            <span className="font-bold text-md mt-0.5" style={{ color: getClassColor(cls) }}>
+                              { classStats[cls] ? (classStats[cls].totalScore / classStats[cls].count).toFixed(1) : "0.0" }
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest hidden lg:block">Class Performance Indicators</span>
+                   </div>
+                </div>
+              </div>
+            ) : (
+              // Multipage layout: render the active page
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {standingsActivePage === 0 ? (
+                  // PAGE 1 Preview: statistics sheet
+                  <div className="flex-1 overflow-y-auto compact-scroll space-y-5 pr-1 py-1">
+                     {/* Key academic stats */}
+                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 border-l-4 border-l-indigo-600 shadow-xs flex flex-col justify-between">
+                           <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">試験平均点</p>
+                           <p className="text-3xl font-bold display-font text-indigo-600 mt-2">{overallAverage.toFixed(1)} <span className="text-xs font-normal text-slate-400">点</span></p>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 border-l-4 border-l-slate-500 shadow-xs flex flex-col justify-between">
+                           <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">試験対象人数</p>
+                           <p className="text-3xl font-bold display-font text-slate-700 mt-2">{results.length} <span className="text-xs font-normal text-slate-400">名</span></p>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs flex flex-col justify-between">
+                           <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">最高得点</p>
+                           <p className="text-3xl font-bold display-font text-emerald-600 mt-2">{Math.max(...results.map(r => r.score), 0)} <span className="text-xs font-normal text-slate-400">点</span></p>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl border border-slate-200 border-l-4 border-l-rose-500 shadow-xs flex flex-col justify-between">
+                           <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">最低得点</p>
+                           <p className="text-3xl font-bold display-font text-rose-500 mt-2">{Math.max(0, Math.min(...results.map(r => r.score), 100))} <span className="text-xs font-normal text-slate-400">点</span></p>
+                        </div>
+                     </div>
+
+                     {/* Class averages overview */}
+                     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+                        <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider mb-3.5"><i className="fa-solid fa-graduation-cap mr-1.5 text-indigo-500"></i>全クラス平均点</h3>
+                        <div className="flex flex-wrap gap-2.5">
+                          {sortedClassNames.map(cls => (
+                            <div key={cls} className="bg-slate-50 border border-slate-150 py-2.5 px-3 rounded-lg text-center shadow-xs shrink-0 flex-1 min-w-[70px]">
+                              <p className="text-[9px] text-slate-500 font-extrabold truncate">{cls}</p>
+                              <p className="text-base font-black display-font text-indigo-600 mt-1">
+                                { classStats[cls] ? (classStats[cls].totalScore / classStats[cls].count).toFixed(1) : "0.0" }点
+                              </p>
+                              <p className="text-[8px] text-slate-400 font-medium">({classStats[cls]?.count || 0}名)</p>
+                            </div>
+                          ))}
+                        </div>
+                     </div>
+
+                     {/* Grade reach ratio distribution */}
+                     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4"><i className="fa-solid fa-chart-pie mr-1.5 text-indigo-500"></i>学年到達基準グレード到達分布</h3>
+                        <div className="space-y-3.5">
+                          {distributionsForUI.map(grade => (
+                            <div key={grade.badgeText} className="flex items-center">
+                              <div className="w-24 shrink-0">
+                                <span className="text-[9px] font-black tracking-wider px-2 py-0.5 rounded border display-font uppercase shrink-0" style={{ borderColor: grade.color, color: grade.color, backgroundColor: `${grade.color}08` }}>
+                                  {grade.badgeText}
+                                </span>
+                              </div>
+                              <div className="w-24 shrink-0 text-left text-xs font-extrabold text-slate-400">
+                                {grade.rankText}
+                              </div>
+                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden flex mx-4 border border-slate-200/60 p-0.5">
+                                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${grade.percentage}%`, backgroundColor: grade.color }} />
+                              </div>
+                              <div className="w-24 shrink-0 text-right font-bold text-xs text-slate-700">
+                                <span className="font-extrabold display-font text-slate-900">{grade.count} 名</span>
+                                <span className="text-slate-400 text-[10px] ml-1.5">({grade.percentage.toFixed(1)}%)</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                     </div>
                   </div>
-                  <span className="text-[9px] font-bold text-slate-300 uppercase tracking-widest hidden lg:block">Class Performance Indicators</span>
-               </div>
-            </div>
+                ) : (
+                  // Individual student data tables for active page
+                  <div className="flex-1 overflow-y-auto compact-scroll space-y-2 pr-1">
+                    {standingsPages[standingsActivePage - 1]?.map((r) => {
+                      const absRank = rankMap.get(r.student.id) || 0;
+                      return (
+                        <div key={r.student.id} className="grade-row animate-[fadeIn_0.15s_ease-out]">
+                          <div className="grade-checkbox-cell" onClick={() => toggleSelection(r.student.id)}>
+                            <div className={`checkbox-custom mr-0 shrink-0 ${selectedIds.has(r.student.id) ? 'checked' : ''}`}></div>
+                          </div>
+                          <div className={`grade-pos ${absRank === 1 ? 'top1' : absRank === 2 ? 'top2' : absRank === 3 ? 'top3' : 'text-slate-400'}`} onClick={() => { 
+                              const idx = sidebarList.findIndex(res => res.student.id === r.student.id);
+                              if (idx !== -1) setSelectedResultIndex(idx);
+                              triggerLapChange(4); 
+                            }}>{absRank}</div>
+                          <div className="grade-pts">{r.score} 点</div>
+                          <div className="grade-name-block" onClick={() => { 
+                              const idx = sidebarList.findIndex(res => res.student.id === r.student.id);
+                              if (idx !== -1) setSelectedResultIndex(idx);
+                              triggerLapChange(4); 
+                            }}>
+                             <div className="grade-team-color" style={{ backgroundColor: getClassColor(r.student.class) }}></div>
+                             <span className="grade-driver">{r.student.name}</span>
+                             <span className="grade-team">{r.student.class}</span>
+                          </div>
+                          <div className="grade-stat">{r.accuracy.toFixed(1)}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </main>

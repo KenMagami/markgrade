@@ -57,21 +57,24 @@ const getStudentNumber = (student: { id: string; class: string; number?: string 
   if (student.number !== undefined && student.number !== null && student.number !== '') {
     const digitsOnly = student.number.replace(/\D/g, '');
     if (digitsOnly) {
-      return digitsOnly.slice(0, 2);
+      const parsed = parseInt(digitsOnly, 10);
+      if (!isNaN(parsed)) {
+        return String(parsed);
+      }
     }
-    return student.number.slice(0, 2);
+    return student.number;
   }
   // fallback parsing ID
   const match = student.id.match(/\d+$/);
   if (match) {
     const rawNum = match[0];
     const parsed = parseInt(rawNum, 10);
-    return isNaN(parsed) ? rawNum.slice(0, 2) : String(parsed).slice(0, 2);
+    return isNaN(parsed) ? rawNum : String(parsed);
   }
   return '';
 };
 
-const formatClassAndNumber = (student: { id: string; class: string; number?: string }) => {
+export const formatClassAndNumber = (student: { id: string; class: string; number?: string }) => {
   const cls = student.class && student.class !== '-' ? student.class : '';
   const num = getStudentNumber(student);
   const numStr = num ? `${num}番` : '';
@@ -81,7 +84,7 @@ const formatClassAndNumber = (student: { id: string; class: string; number?: str
   return cls || numStr || 'ー年ー組ー番';
 };
 
-const getScoreEvaluation = (accuracy: number) => {
+export const getScoreEvaluation = (accuracy: number) => {
   if (accuracy === 100) {
     return {
       rankText: '秀 (S)',
@@ -311,7 +314,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
           className="bg-white border-b-8 border-indigo-600 Page1"
         >
           {/* Header - Academic Elegance */}
-          <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a', paddingTop: '28px', paddingBottom: '28px', paddingLeft: '20px', paddingRight: '20px' }}>
+          <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a', paddingTop: '36px', paddingBottom: '36px', paddingLeft: '20px', paddingRight: '20px' }}>
              {/* Title row */}
              <div className="w-full flex justify-between items-center gap-4">
                 <div className="flex-1 min-w-0">
@@ -453,7 +456,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
           className="bg-white border-b-8 border-indigo-600 Page2 page-break-before"
         >
           {/* Header - Academic Elegance */}
-          <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a', paddingTop: '28px', paddingBottom: '28px', paddingLeft: '20px', paddingRight: '20px' }}>
+          <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 rounded-t-sm" style={{ backgroundColor: '#0f172a', paddingTop: '36px', paddingBottom: '36px', paddingLeft: '20px', paddingRight: '20px' }}>
              {/* Title row */}
              <div className="w-full flex justify-between items-center gap-4">
                 <div className="flex-1 min-w-0">
@@ -588,7 +591,7 @@ export const ResultReport: React.FC<ResultReportProps> = ({ result, sessionTitle
       `}</style>
 
       {/* Header - Academic Elegance */}
-      <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 avoid-break" style={{ backgroundColor: '#0f172a', paddingTop: '28px', paddingBottom: '28px', paddingLeft: '20px', paddingRight: '20px' }}>
+      <div className="bg-[#0f172a] flex flex-col gap-3 shrink-0 avoid-break" style={{ backgroundColor: '#0f172a', paddingTop: '36px', paddingBottom: '36px', paddingLeft: '20px', paddingRight: '20px' }}>
          {/* Title row */}
          <div className="w-full flex justify-between items-center gap-4">
             <div className="flex-1 min-w-0">
