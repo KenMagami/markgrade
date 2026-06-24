@@ -3,6 +3,19 @@ import { Student, Question, StudentAnswer, ScoringResult, ArchiveData, Competenc
 import { SetupForm } from './components/SetupForm';
 import { ResultReport } from './components/ResultReport';
 import { StandingsReport } from './components/StandingsReport';
+import { 
+  auth, 
+  signInWithPopup, 
+  signOut, 
+  googleProvider, 
+  onAuthStateChanged, 
+  isEmailAllowed, 
+  getAllowedEmails, 
+  addAllowedEmail, 
+  removeAllowedEmail,
+  SUPER_ADMIN_EMAIL,
+  User 
+} from './firebase';
 
 const APP_VERSION = "v2.0.0-ELEGANT-EDITION";
 
@@ -137,6 +150,16 @@ const App: React.FC = () => {
   const [showSetupEntry, setShowSetupEntry] = useState(false);
   const [showArchiveView, setShowArchiveView] = useState(false);
   
+  // Google Authentication and Access Control States
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isAllowed, setIsAllowed] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [allowedEmailsList, setAllowedEmailsList] = useState<string[]>([]);
+  const [newEmailInput, setNewEmailInput] = useState("");
+  const [showAccessManageModal, setShowAccessManageModal] = useState(false);
+  const [accessManageMessage, setAccessManageMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  
   // Persistence for range slots (Grand Question settings)
   const [rangeSlots, setRangeSlots] = useState<RangeSlot[]>([]);
   const [standingsActivePage, setStandingsActivePage] = useState<number>(0);
@@ -177,6 +200,38 @@ const App: React.FC = () => {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, [refreshArchives]);
+
+  // Google Authentication Observer
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsAuthLoading(true);
+      if (currentUser) {
+        const allowed = await isEmailAllowed(currentUser.email);
+        if (allowed) {
+          setUser(currentUser);
+          setIsAllowed(true);
+          setAuthError(null);
+          // Load other allowed emails
+          try {
+            const list = await getAllowedEmails();
+            setAllowedEmailsList(list);
+          } catch (e) {
+            console.error("Allowed list fetch failed", e);
+          }
+        } else {
+          setAuthError(`このGoogleアカウント（${currentUser.email}）にはアクセス権限がありません。管理者（${SUPER_ADMIN_EMAIL}）にお問い合わせください。`);
+          setUser(null);
+          setIsAllowed(false);
+          await signOut(auth);
+        }
+      } else {
+        setUser(null);
+        setIsAllowed(false);
+      }
+      setIsAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const startNewSession = () => {
     if (students.length > 0 || questions.length > 0) {
@@ -221,6 +276,83 @@ const App: React.FC = () => {
     setShowSetupEntry(true);
     setLap(1);
     setShowArchiveView(false);
+  };
+
+  const handleSignIn = async () => {
+    try {
+      setIsAnimating(true);
+      setAuthError(null);
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error("Sign in error:", error);
+      // Auth/popup-blocked or iframe issues can be caught and printed elegantly
+      setAuthError(`ログインに失敗しました。ポップアップがブロックされていないか確認してください。エラー：${error.message || error}`);
+    } finally {
+      setIsAnimating(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      setIsAnimating(true);
+      await signOut(auth);
+      setUser(null);
+      setIsAllowed(false);
+      setAuthError(null);
+    } catch (error) {
+      console.error("Sign out error:", error);
+    } finally {
+      setIsAnimating(false);
+    }
+  };
+
+  const handleAddAllowedEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAccessManageMessage(null);
+    const emailToAdd = newEmailInput.trim().toLowerCase();
+    if (!emailToAdd) return;
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailToAdd)) {
+      setAccessManageMessage({ text: "有効なメールアドレスを入力してください。", type: 'error' });
+      return;
+    }
+
+    try {
+      setIsAnimating(true);
+      await addAllowedEmail(emailToAdd);
+      const list = await getAllowedEmails();
+      setAllowedEmailsList(list);
+      setNewEmailInput("");
+      setAccessManageMessage({ text: `「${emailToAdd}」を追加しました。`, type: 'success' });
+    } catch (err: any) {
+      console.error(err);
+      setAccessManageMessage({ text: `追加に失敗しました：${err.message || err}`, type: 'error' });
+    } finally {
+      setIsAnimating(false);
+    }
+  };
+
+  const handleRemoveAllowedEmail = async (email: string) => {
+    if (email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase()) {
+      alert("スーパー管理者は削除できません。");
+      return;
+    }
+    if (!confirm(`「${email}」のアクセス権限を削除しますか？`)) return;
+    
+    setAccessManageMessage(null);
+    try {
+      setIsAnimating(true);
+      await removeAllowedEmail(email);
+      const list = await getAllowedEmails();
+      setAllowedEmailsList(list);
+      setAccessManageMessage({ text: `「${email}」を削除しました。`, type: 'success' });
+    } catch (err: any) {
+      console.error(err);
+      setAccessManageMessage({ text: `削除に失敗しました：${err.message || err}`, type: 'error' });
+    } finally {
+      setIsAnimating(false);
+    }
   };
 
   const resetAllState = () => {
@@ -854,6 +986,67 @@ const App: React.FC = () => {
         .logo-glow { filter: drop-shadow(0 2px 4px rgba(29,78,216,0.1)); }
       `}</style>
 
+      {isAuthLoading ? (
+        <div className="fixed inset-0 bg-slate-50 flex flex-col items-center justify-center z-[9999]">
+          <div className="flex flex-col items-center max-w-sm text-center">
+            <MarkGradeLogo className="h-16 w-16 mb-4 text-indigo-600 logo-glow animate-pulse" />
+            <div className="text-xl font-extrabold text-slate-800 display-font mb-1">MarkGrade</div>
+            <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-6">Elegant Assessment & Analysis</div>
+            <div className="flex items-center space-x-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm">
+              <i className="fa-solid fa-circle-notch text-indigo-600 animate-spin"></i>
+              <span className="text-slate-600 text-xs font-semibold">セキュリティ接続を初期化中...</span>
+            </div>
+          </div>
+        </div>
+      ) : (!user || !isAllowed) ? (
+        <div className="fixed inset-0 bg-slate-50 flex items-center justify-center z-[9998] p-4">
+          <div className="bg-white w-full max-w-md p-8 rounded-2xl border border-slate-200 shadow-2xl flex flex-col items-center text-center animate-[scaleUp_0.3s_ease-out]">
+            <MarkGradeLogo className="h-20 w-20 mb-6 text-indigo-600 logo-glow" />
+            <h1 className="text-2xl font-extrabold text-slate-800 display-font tracking-tight">MarkGrade</h1>
+            <p className="text-xs text-indigo-600/75 font-bold uppercase tracking-widest mt-1 mb-3">Elegant Assessment & Analysis</p>
+            <p className="text-xs text-slate-450 leading-relaxed max-w-xs mb-8">
+              本システムは関係者専用の評価分析プラットフォームです。許可されたGoogleアカウントでサインインしてご利用ください。
+            </p>
+
+            {authError && (
+              <div className="w-full bg-rose-50 border border-rose-100 p-4 rounded-xl text-left mb-6 animate-[fadeIn_0.3s_ease-out]">
+                <div className="flex items-start space-x-2">
+                  <i className="fa-solid fa-circle-exclamation text-rose-500 mt-0.5 shrink-0"></i>
+                  <div>
+                    <p className="text-xs font-bold text-rose-800">アクセス制限</p>
+                    <p className="text-[11px] text-rose-600 font-medium leading-relaxed mt-1">
+                      {authError}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <button 
+              onClick={handleSignIn}
+              className="w-full bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-850 px-6 py-3.5 rounded-xl border border-slate-200 hover:border-slate-300 font-bold text-sm flex items-center justify-center space-x-3 transition-all shadow-sm cursor-pointer"
+            >
+              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+              </svg>
+              <span>Googleアカウントでサインイン</span>
+            </button>
+            
+            {authError && (
+              <button 
+                onClick={() => { setAuthError(null); }}
+                className="text-[10px] text-slate-400 hover:text-indigo-600 font-bold uppercase tracking-wider mt-4 hover:underline"
+              >
+                別のアカウントで試す
+              </button>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {isAnimating && (
         <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center">
           <div className="bg-white px-10 py-6 rounded-2xl flex flex-col items-center justify-center shadow-2xl border border-slate-200 text-slate-800">
@@ -912,6 +1105,113 @@ const App: React.FC = () => {
                  </div>
               </div>
            </div>
+        </div>
+      )}
+
+      {showAccessManageModal && (
+        <div className="fixed inset-0 z-[200] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[85vh] animate-[scaleUp_0.3s_ease-out]">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="flex items-center space-x-2">
+                <i className="fa-solid fa-users-gear text-indigo-600 text-lg"></i>
+                <h2 className="display-font font-bold text-base text-slate-800">アクセス権限管理 (Access Control List)</h2>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowAccessManageModal(false);
+                  setAccessManageMessage(null);
+                }} 
+                className="text-slate-400 hover:text-slate-650 transition-colors cursor-pointer"
+              >
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div>
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">新規許可アカウントの追加 (Add Allowed User)</p>
+                <form onSubmit={handleAddAllowedEmail} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                      <i className="fa-regular fa-envelope text-xs"></i>
+                    </span>
+                    <input 
+                      type="email" 
+                      required 
+                      placeholder="example@gmail.com" 
+                      value={newEmailInput}
+                      onChange={(e) => setNewEmailInput(e.target.value)}
+                      className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:bg-white text-slate-800 rounded-xl text-xs font-semibold outline-none transition-all placeholder:text-slate-400"
+                    />
+                  </div>
+                  <button 
+                    type="submit" 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center space-x-1 transition-all shadow-md shadow-indigo-600/10 shrink-0 cursor-pointer"
+                  >
+                    <i className="fa-solid fa-plus text-[10px]"></i>
+                    <span>追加</span>
+                  </button>
+                </form>
+                {accessManageMessage && (
+                  <div className={`mt-2.5 p-2.5 rounded-lg border text-xs font-medium animate-[fadeIn_0.2s_ease-out] ${
+                    accessManageMessage.type === 'success' 
+                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                      : 'bg-rose-50 border-rose-100 text-rose-700'
+                  }`}>
+                    {accessManageMessage.text}
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-slate-100 pt-5">
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">アクセス許可済みリスト (Allowed Emails)</p>
+                  <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">{allowedEmailsList.length} 件</span>
+                </div>
+                
+                <div className="space-y-1.5 max-h-[250px] overflow-y-auto compact-scroll pr-1">
+                  {allowedEmailsList.map((email) => {
+                    const isSuperAdmin = email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+                    return (
+                      <div key={email} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-200 bg-slate-50/50 transition-all">
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <div className={`w-2 h-2 rounded-full ${isSuperAdmin ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></div>
+                          <span className="text-xs font-bold text-slate-700 truncate">{email}</span>
+                          {isSuperAdmin && (
+                            <span className="text-[9px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-bold scale-90">
+                              スーパー管理者
+                            </span>
+                          )}
+                        </div>
+                        {!isSuperAdmin && (
+                          <button 
+                            type="button"
+                            onClick={() => handleRemoveAllowedEmail(email)}
+                            className="w-7 h-7 bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 rounded-lg flex items-center justify-center transition-all cursor-pointer"
+                            title="削除"
+                          >
+                            <i className="fa-regular fa-trash-can text-xs"></i>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {allowedEmailsList.length === 0 && (
+                    <div className="text-center py-8 text-slate-400 text-xs font-semibold">
+                      読み込み中、またはリストが空です
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 bg-slate-50 text-center">
+              <p className="text-[10px] text-slate-400 leading-relaxed font-medium">
+                ※ スーパー管理者（{SUPER_ADMIN_EMAIL}）は常にフルアクセス権限を持ち、削除することはできません。
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -978,6 +1278,42 @@ const App: React.FC = () => {
                   {selectedIds.size}
                 </div>
               )}
+            </div>
+          )}
+
+          {user && (
+            <div className="flex items-center space-x-3 border-l border-slate-200 pl-4 h-full ml-4">
+              <div className="flex flex-col text-right hidden sm:flex">
+                <span className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">{user.displayName || 'ユーザー'}</span>
+                <span className="text-[9px] font-semibold text-slate-400 truncate max-w-[120px] leading-none mt-0.5">{user.email}</span>
+              </div>
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full border border-slate-200 object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold uppercase">
+                  {user.email?.[0] || 'U'}
+                </div>
+              )}
+              
+              <button 
+                onClick={() => {
+                  getAllowedEmails().then(setAllowedEmailsList);
+                  setAccessManageMessage(null);
+                  setShowAccessManageModal(true);
+                }}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-650 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all flex items-center justify-center cursor-pointer"
+                title="アクセス権限の管理"
+              >
+                <i className="fa-solid fa-users-gear text-sm"></i>
+              </button>
+
+              <button 
+                onClick={handleSignOut}
+                className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-650 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all flex items-center justify-center cursor-pointer"
+                title="ログアウト"
+              >
+                <i className="fa-solid fa-right-from-bracket text-sm"></i>
+              </button>
             </div>
           )}
         </div>
