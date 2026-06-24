@@ -125,6 +125,42 @@ const App: React.FC = () => {
       setShowAccessManageModal(false);
     }
   }, [isSuperAdmin]);
+
+  const getArchivesKey = useCallback(() => {
+    if (!user) return 'grader_archives';
+    const userKey = `grader_archives_${user.uid}`;
+    // One-time migration of legacy grader_archives
+    try {
+      if (!localStorage.getItem(userKey)) {
+        const legacyData = localStorage.getItem('grader_archives');
+        if (legacyData) {
+          localStorage.setItem(userKey, legacyData);
+          localStorage.removeItem('grader_archives');
+        }
+      }
+    } catch (e) {
+      console.error("Migration error", e);
+    }
+    return userKey;
+  }, [user]);
+
+  const getDraftKey = useCallback(() => {
+    if (!user) return 'grader_current_draft';
+    const userKey = `grader_current_draft_${user.uid}`;
+    // One-time migration of legacy grader_current_draft
+    try {
+      if (!localStorage.getItem(userKey)) {
+        const legacyDraft = localStorage.getItem('grader_current_draft');
+        if (legacyDraft) {
+          localStorage.setItem(userKey, legacyDraft);
+          localStorage.removeItem('grader_current_draft');
+        }
+      }
+    } catch (e) {
+      console.error("Migration error", e);
+    }
+    return userKey;
+  }, [user]);
   
   // Persistence for range slots (Grand Question settings)
   const [rangeSlots, setRangeSlots] = useState<RangeSlot[]>([]);
@@ -144,12 +180,13 @@ const App: React.FC = () => {
     }
 
     try {
+      const archivesKey = getArchivesKey();
       // 1. Fetch cloud sessions
       const cloudSessions = await getUserSessions(user.uid);
       const cloudSessionsMap = new Map(cloudSessions.map(s => [s.id, s]));
 
       // 2. Fetch local sessions to check for synchronization
-      const savedArchives = localStorage.getItem('grader_archives');
+      const savedArchives = localStorage.getItem(archivesKey);
       let localSessions: ArchiveData[] = savedArchives ? JSON.parse(savedArchives) : [];
 
       let hasNewSyncs = false;
@@ -166,15 +203,26 @@ const App: React.FC = () => {
 
       setArchives(finalSessions);
       // Synchronize local storage to match cloud
-      localStorage.setItem('grader_archives', JSON.stringify(finalSessions));
+      localStorage.setItem(archivesKey, JSON.stringify(finalSessions));
     } catch (e) {
       console.error("Archive load/sync failed", e);
     }
-  }, [user, isAllowed]);
+  }, [user, isAllowed, getArchivesKey]);
 
   useEffect(() => {
     refreshArchives();
-    const draft = localStorage.getItem('grader_current_draft');
+
+    // Reset draft state before loading to prevent state bleeding from other accounts
+    setStudents([]);
+    setQuestions([]);
+    setResults([]);
+    setRawAnswers([]);
+    setSessionTitle("");
+    setCurrentSessionId(null);
+    setRangeSlots([]);
+
+    const draftKey = getDraftKey();
+    const draft = localStorage.getItem(draftKey);
     if (draft) {
       try {
         const data = JSON.parse(draft);
@@ -194,7 +242,7 @@ const App: React.FC = () => {
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, [refreshArchives]);
+  }, [refreshArchives, getDraftKey]);
 
   // Google Authentication Observer
   useEffect(() => {
@@ -217,11 +265,13 @@ const App: React.FC = () => {
           setAuthError(`このGoogleアカウント（${currentUser.email}）にはアクセス権限がありません。管理者（${SUPER_ADMIN_EMAIL}）にお問い合わせください。`);
           setUser(null);
           setIsAllowed(false);
+          resetAllState();
           await signOut(auth);
         }
       } else {
         setUser(null);
         setIsAllowed(false);
+        resetAllState();
       }
       setIsAuthLoading(false);
     });
@@ -259,10 +309,11 @@ const App: React.FC = () => {
     };
     
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       let archiveList: ArchiveData[] = savedArchives ? JSON.parse(savedArchives) : [];
       archiveList = [newArchive, ...archiveList];
-      localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+      localStorage.setItem(archivesKey, JSON.stringify(archiveList));
       setArchives(archiveList);
 
       if (user && isAllowed) {
@@ -365,7 +416,7 @@ const App: React.FC = () => {
     setCurrentSessionId(null);
     setRangeSlots([]);
     setShowSetupEntry(false);
-    localStorage.removeItem('grader_current_draft');
+    localStorage.removeItem(getDraftKey());
     setLap(1);
   };
 
@@ -377,17 +428,19 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
+    const draftKey = getDraftKey();
     const draft = { students, questions, sessionTitle, lap, results, rawAnswers, currentSessionId, rangeSlots };
     try {
-      localStorage.setItem('grader_current_draft', JSON.stringify(draft));
-    } catch (e) { localStorage.removeItem('grader_current_draft'); }
-  }, [students, questions, sessionTitle, lap, results, rawAnswers, currentSessionId, rangeSlots]);
+      localStorage.setItem(draftKey, JSON.stringify(draft));
+    } catch (e) { localStorage.removeItem(draftKey); }
+  }, [students, questions, sessionTitle, lap, results, rawAnswers, currentSessionId, rangeSlots, getDraftKey]);
 
   // Auto-sync working draft states back to its entry in archives list
   useEffect(() => {
     if (!currentSessionId) return;
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       if (savedArchives) {
         let archiveList: ArchiveData[] = JSON.parse(savedArchives);
         const index = archiveList.findIndex(a => a.id === currentSessionId);
@@ -411,7 +464,7 @@ const App: React.FC = () => {
               rangeSlots
             };
             archiveList[index] = updated;
-            localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+            localStorage.setItem(archivesKey, JSON.stringify(archiveList));
             setArchives(archiveList);
 
             if (user && isAllowed) {
@@ -425,7 +478,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Auto-sync to archives failed", e);
     }
-  }, [currentSessionId, sessionTitle, students, questions, rawAnswers, results, rangeSlots, user, isAllowed]);
+  }, [currentSessionId, sessionTitle, students, questions, rawAnswers, results, rangeSlots, user, isAllowed, getArchivesKey]);
 
   const sortedClassNames = useMemo(() => {
     const classes = Array.from(new Set(students.map(s => s.class)));
@@ -685,7 +738,8 @@ const App: React.FC = () => {
       rangeSlots
     };
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       let archiveList: ArchiveData[] = savedArchives ? JSON.parse(savedArchives) : [];
       const existingIndex = archiveList.findIndex(a => a.id === id);
       let targetArchive = newArchive;
@@ -699,7 +753,7 @@ const App: React.FC = () => {
       } else {
         archiveList = [newArchive, ...archiveList];
       }
-      localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+      localStorage.setItem(archivesKey, JSON.stringify(archiveList));
       setArchives(archiveList);
 
       // Save to Firestore if authenticated
@@ -711,7 +765,7 @@ const App: React.FC = () => {
     } catch (e) { alert("保存容量の上限に達しました。不要なログを削除してください。"); }
     if (!currentSessionId) setCurrentSessionId(id);
     return id;
-  }, [currentSessionId, questions, sessionTitle, students, rangeSlots, user, isAllowed]);
+  }, [currentSessionId, questions, sessionTitle, students, rangeSlots, user, isAllowed, getArchivesKey]);
 
   const handleResumeSession = (archive: ArchiveData) => {
     setStudents(archive.students);
@@ -733,13 +787,14 @@ const App: React.FC = () => {
   const handleArchiveSession = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       if (!savedArchives) return;
       let archiveList: ArchiveData[] = JSON.parse(savedArchives);
       const index = archiveList.findIndex(a => a.id === id);
       if (index > -1) {
         archiveList[index].isArchived = true;
-        localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+        localStorage.setItem(archivesKey, JSON.stringify(archiveList));
         setArchives(archiveList);
         
         if (user && isAllowed) {
@@ -749,18 +804,19 @@ const App: React.FC = () => {
         }
       }
     } catch (e) { console.error("Archive session failed", e); }
-  }, [currentSessionId, user, isAllowed]);
+  }, [currentSessionId, user, isAllowed, getArchivesKey]);
 
   const handleRestoreSession = useCallback((e: React.MouseEvent | null, id: string) => {
     if (e) e.stopPropagation();
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       if (!savedArchives) return;
       let archiveList: ArchiveData[] = JSON.parse(savedArchives);
       const index = archiveList.findIndex(a => a.id === id);
       if (index > -1) {
         archiveList[index].isArchived = false;
-        localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+        localStorage.setItem(archivesKey, JSON.stringify(archiveList));
         setArchives(archiveList);
 
         if (user && isAllowed) {
@@ -770,17 +826,18 @@ const App: React.FC = () => {
         }
       }
     } catch (e) { console.error("Restore session failed", e); }
-  }, [user, isAllowed]);
+  }, [user, isAllowed, getArchivesKey]);
 
   const handleDeleteArchive = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (!confirm("本当にこの集計ログを削除しアーカイブから削除しますか？（復元できません）")) return;
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       if (!savedArchives) return;
       let archiveList: ArchiveData[] = JSON.parse(savedArchives);
       archiveList = archiveList.filter(a => a.id !== id);
-      localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+      localStorage.setItem(archivesKey, JSON.stringify(archiveList));
       setArchives(archiveList);
       if (currentSessionId === id) setCurrentSessionId(null);
 
@@ -790,20 +847,21 @@ const App: React.FC = () => {
         });
       }
     } catch (e) { console.error("削除エラー", e); }
-  }, [currentSessionId, user, isAllowed]);
+  }, [currentSessionId, user, isAllowed, getArchivesKey]);
 
   const handleRenameArchive = useCallback((e: React.MouseEvent, id: string, oldName: string) => {
     e.stopPropagation();
     const newName = prompt("集計セッションの新しい名称を入力してください:", oldName);
     if (!newName || newName === oldName) return;
     try {
-      const savedArchives = localStorage.getItem('grader_archives');
+      const archivesKey = getArchivesKey();
+      const savedArchives = localStorage.getItem(archivesKey);
       if (!savedArchives) return;
       let archiveList: ArchiveData[] = JSON.parse(savedArchives);
       const index = archiveList.findIndex(a => a.id === id);
       if (index > -1) {
         archiveList[index].name = newName;
-        localStorage.setItem('grader_archives', JSON.stringify(archiveList));
+        localStorage.setItem(archivesKey, JSON.stringify(archiveList));
         setArchives(archiveList);
         if (currentSessionId === id) setSessionTitle(newName);
 
@@ -814,7 +872,7 @@ const App: React.FC = () => {
         }
       }
     } catch (e) { console.error("名称変更エラー", e); }
-  }, [currentSessionId, user, isAllowed]);
+  }, [currentSessionId, user, isAllowed, getArchivesKey]);
 
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => {
