@@ -17,7 +17,7 @@ import {
   User 
 } from './firebase';
 
-const APP_VERSION = "v2.0.0-ELEGANT-EDITION";
+const APP_VERSION = "v2.0.1";
 
 // Elegant premium academic MarkGrade SVG Logo with gorgeous gradients
 const MarkGradeLogo: React.FC<{ className?: string }> = ({ className }) => (
@@ -76,54 +76,6 @@ const MarkGradeLogo: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-// Helpful Educational Guide (Replacing the F1 Pit Radio)
-const GraderGuide: React.FC<{ step: number, onDismiss: (forever: boolean) => void }> = ({ step, onDismiss }) => {
-  const [showForever, setShowForever] = useState(false);
-  const messages: Record<number, string> = {
-    1: "登録画面へようこそ。まずは「生徒名簿テンプレート」をダウンロードし、データを記載したCSVをドラッグして流し込みましょう。自動でセッションの下書きが保存されます。",
-    2: "採点基準の設定時間です。正解記号、配点、評価する観点を設問ごとに設定できます。左側の「大問 / 観点一括適用」を使えば、複数の設問に数秒で設定を割付できます。",
-    3: "回答データのマッピングです。登録生徒のデータが紐づいた「解答記入用シート」を一度保存し、採点した結果を載せてからシステムにアップロードしてください。",
-    4: "個人分析レポートへようこそ。生徒一人ひとりの詳細なミス、学習観点バランス、グループ別スコアを精緻に確認できます。左右のボタンやサイドバーで生徒を瞬時に切り替えられます。",
-    5: "成績統計ダッシュボードに到着しました。クラス・科目全体の平均、クラス間での対比を視覚的なバッジで追跡できます。全員一括や選択者のみでのPDF個票書き出しも可能です。"
-  };
-
-  return (
-    <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-2xl px-4 animate-[slideUp_0.5s_ease-out]">
-      <div className="bg-white border-l-4 border-indigo-600 shadow-[0_15px_40px_rgba(79,70,229,0.15)] p-5 rounded-r-xl border border-slate-200">
-        <div className="flex items-start space-x-4">
-          <div className="w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center shrink-0 border border-indigo-100">
-             <i className="fa-solid fa-graduation-cap text-indigo-600 text-lg"></i>
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-1.5">
-               <span className="display-font text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Grader Assistant</span>
-               <span className="text-[9px] font-semibold text-slate-400">ステップ {step} ガイド</span>
-            </div>
-            <p className="text-slate-600 text-xs font-medium leading-relaxed">
-              {messages[step] || "進捗に合わせてアシストします。お疲れ様です！"}
-            </p>
-            <div className="mt-4 flex items-center justify-between pt-3 border-t border-slate-100">
-               <label className="flex items-center space-x-2 cursor-pointer group">
-                  <input type="checkbox" checked={showForever} onChange={(e) => setShowForever(e.target.checked)} className="w-3.5 h-3.5 accent-indigo-600 rounded" />
-                  <span className="text-[10px] text-slate-400 group-hover:text-slate-600 transition-colors">今後はこの案内を表示しない</span>
-               </label>
-               <button 
-                 onClick={() => onDismiss(showForever)}
-                 className="bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-indigo-600 px-3.5 py-1.5 rounded-lg text-[10px] font-bold border border-slate-200 transition-all"
-               >
-                 了解しました
-               </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <style>{`
-        @keyframes slideUp { from { transform: translate(-50%, 100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-      `}</style>
-    </div>
-  );
-};
-
 const App: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -152,6 +104,11 @@ const App: React.FC = () => {
   
   // Google Authentication and Access Control States
   const [user, setUser] = useState<User | null>(null);
+  const isSuperAdmin = useMemo(() => {
+    if (!user || !user.email) return false;
+    return user.email.toLowerCase() === SUPER_ADMIN_EMAIL.toLowerCase();
+  }, [user]);
+
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isAllowed, setIsAllowed] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -159,6 +116,12 @@ const App: React.FC = () => {
   const [newEmailInput, setNewEmailInput] = useState("");
   const [showAccessManageModal, setShowAccessManageModal] = useState(false);
   const [accessManageMessage, setAccessManageMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      setShowAccessManageModal(false);
+    }
+  }, [isSuperAdmin]);
   
   // Persistence for range slots (Grand Question settings)
   const [rangeSlots, setRangeSlots] = useState<RangeSlot[]>([]);
@@ -373,18 +336,6 @@ const App: React.FC = () => {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') setDeferredPrompt(null);
-  };
-
-  useEffect(() => {
-    if (!tutorialHiddenForever) setShowTutorial(true);
-  }, [lap, tutorialHiddenForever]);
-
-  const handleDismissTutorial = (forever: boolean) => {
-    setShowTutorial(false);
-    if (forever) {
-      setTutorialHiddenForever(true);
-      localStorage.setItem('grader_tutorial_hidden', 'true');
-    }
   };
 
   useEffect(() => {
@@ -930,7 +881,7 @@ const App: React.FC = () => {
     const blob = new Blob([bom, csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `${sessionTitle || 'Grade_Analysis'}.csv`; a.click();
+    a.href = url; a.download = `${sessionTitle || 'Grade_Analysis'}_${APP_VERSION}.csv`; a.click();
   };
 
   const getClassColor = (cls: string) => {
@@ -1056,8 +1007,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {showTutorial && <GraderGuide step={lap} onDismiss={handleDismissTutorial} />}
-
       {showExportModal && (
         <div className="fixed inset-0 z-[200] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
            <div className="bg-white w-full max-w-xl rounded-2xl overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] animate-[scaleUp_0.3s_ease-out]">
@@ -1108,7 +1057,7 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {showAccessManageModal && (
+      {showAccessManageModal && isSuperAdmin && (
         <div className="fixed inset-0 z-[200] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[85vh] animate-[scaleUp_0.3s_ease-out]">
             <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -1295,17 +1244,19 @@ const App: React.FC = () => {
                 </div>
               )}
               
-              <button 
-                onClick={() => {
-                  getAllowedEmails().then(setAllowedEmailsList);
-                  setAccessManageMessage(null);
-                  setShowAccessManageModal(true);
-                }}
-                className="w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-650 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all flex items-center justify-center cursor-pointer"
-                title="アクセス権限の管理"
-              >
-                <i className="fa-solid fa-users-gear text-sm"></i>
-              </button>
+              {isSuperAdmin && (
+                <button 
+                  onClick={() => {
+                    getAllowedEmails().then(setAllowedEmailsList);
+                    setAccessManageMessage(null);
+                    setShowAccessManageModal(true);
+                  }}
+                  className="w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-650 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all flex items-center justify-center cursor-pointer"
+                  title="アクセス権限の管理"
+                >
+                  <i className="fa-solid fa-users-gear text-sm"></i>
+                </button>
+              )}
 
               <button 
                 onClick={handleSignOut}
