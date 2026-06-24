@@ -14,6 +14,9 @@ import {
   addAllowedEmail, 
   removeAllowedEmail,
   SUPER_ADMIN_EMAIL,
+  getUserSessions,
+  saveUserSession,
+  deleteUserSession,
   User 
 } from './firebase';
 
@@ -131,14 +134,43 @@ const App: React.FC = () => {
     setStandingsActivePage(0);
   }, [filterClass, sortBy]);
 
-  const refreshArchives = useCallback(() => {
+  const refreshArchives = useCallback(async () => {
+    const hidden = localStorage.getItem('grader_tutorial_hidden') === 'true';
+    setTutorialHiddenForever(hidden);
+
+    if (!user || !isAllowed) {
+      setArchives([]);
+      return;
+    }
+
     try {
+      // 1. Fetch cloud sessions
+      const cloudSessions = await getUserSessions(user.uid);
+      const cloudSessionsMap = new Map(cloudSessions.map(s => [s.id, s]));
+
+      // 2. Fetch local sessions to check for synchronization
       const savedArchives = localStorage.getItem('grader_archives');
-      if (savedArchives) setArchives(JSON.parse(savedArchives));
-      const hidden = localStorage.getItem('grader_tutorial_hidden') === 'true';
-      setTutorialHiddenForever(hidden);
-    } catch (e) { console.error("Archive load failed", e); }
-  }, []);
+      let localSessions: ArchiveData[] = savedArchives ? JSON.parse(savedArchives) : [];
+
+      let hasNewSyncs = false;
+      for (const localSess of localSessions) {
+        // If a local session is not in cloud, upload it!
+        if (!cloudSessionsMap.has(localSess.id)) {
+          await saveUserSession(user.uid, localSess);
+          hasNewSyncs = true;
+        }
+      }
+
+      // If we uploaded new sessions, re-fetch the up-to-date cloud list
+      const finalSessions = hasNewSyncs ? await getUserSessions(user.uid) : cloudSessions;
+
+      setArchives(finalSessions);
+      // Synchronize local storage to match cloud
+      localStorage.setItem('grader_archives', JSON.stringify(finalSessions));
+    } catch (e) {
+      console.error("Archive load/sync failed", e);
+    }
+  }, [user, isAllowed]);
 
   useEffect(() => {
     refreshArchives();
@@ -232,6 +264,12 @@ const App: React.FC = () => {
       archiveList = [newArchive, ...archiveList];
       localStorage.setItem('grader_archives', JSON.stringify(archiveList));
       setArchives(archiveList);
+
+      if (user && isAllowed) {
+        saveUserSession(user.uid, newArchive).catch(err => {
+          console.error("Firestore save new session failure", err);
+        });
+      }
     } catch (e) {
       console.error("Auto save new session failed", e);
     }
@@ -363,7 +401,7 @@ const App: React.FC = () => {
             JSON.stringify(current.results) !== JSON.stringify(results) ||
             JSON.stringify(current.rangeSlots) !== JSON.stringify(rangeSlots)
           ) {
-            archiveList[index] = {
+            const updated = {
               ...current,
               name: sessionTitle,
               students,
@@ -372,15 +410,22 @@ const App: React.FC = () => {
               results,
               rangeSlots
             };
+            archiveList[index] = updated;
             localStorage.setItem('grader_archives', JSON.stringify(archiveList));
             setArchives(archiveList);
+
+            if (user && isAllowed) {
+              saveUserSession(user.uid, updated).catch(err => {
+                console.error("Firestore sync failure", err);
+              });
+            }
           }
         }
       }
     } catch (e) {
       console.error("Auto-sync to archives failed", e);
     }
-  }, [currentSessionId, sessionTitle, students, questions, rawAnswers, results, rangeSlots]);
+  }, [currentSessionId, sessionTitle, students, questions, rawAnswers, results, rangeSlots, user, isAllowed]);
 
   const sortedClassNames = useMemo(() => {
     const classes = Array.from(new Set(students.map(s => s.class)));
@@ -643,21 +688,30 @@ const App: React.FC = () => {
       const savedArchives = localStorage.getItem('grader_archives');
       let archiveList: ArchiveData[] = savedArchives ? JSON.parse(savedArchives) : [];
       const existingIndex = archiveList.findIndex(a => a.id === id);
+      let targetArchive = newArchive;
       if (existingIndex > -1) {
         archiveList[existingIndex] = {
           ...archiveList[existingIndex],
           ...newArchive,
           isArchived: archiveList[existingIndex].isArchived || false
         };
+        targetArchive = archiveList[existingIndex];
       } else {
         archiveList = [newArchive, ...archiveList];
       }
       localStorage.setItem('grader_archives', JSON.stringify(archiveList));
       setArchives(archiveList);
+
+      // Save to Firestore if authenticated
+      if (user && isAllowed) {
+        saveUserSession(user.uid, targetArchive).catch(err => {
+          console.error("Firestore save failure", err);
+        });
+      }
     } catch (e) { alert("保存容量の上限に達しました。不要なログを削除してください。"); }
     if (!currentSessionId) setCurrentSessionId(id);
     return id;
-  }, [currentSessionId, questions, sessionTitle, students, rangeSlots]);
+  }, [currentSessionId, questions, sessionTitle, students, rangeSlots, user, isAllowed]);
 
   const handleResumeSession = (archive: ArchiveData) => {
     setStudents(archive.students);
@@ -687,12 +741,15 @@ const App: React.FC = () => {
         archiveList[index].isArchived = true;
         localStorage.setItem('grader_archives', JSON.stringify(archiveList));
         setArchives(archiveList);
-        if (currentSessionId === id) {
-          // If the archived session is the currently active one, you can reset memory or keep it
+        
+        if (user && isAllowed) {
+          saveUserSession(user.uid, archiveList[index]).catch(err => {
+            console.error("Firestore archive failure", err);
+          });
         }
       }
     } catch (e) { console.error("Archive session failed", e); }
-  }, [currentSessionId]);
+  }, [currentSessionId, user, isAllowed]);
 
   const handleRestoreSession = useCallback((e: React.MouseEvent | null, id: string) => {
     if (e) e.stopPropagation();
@@ -705,9 +762,15 @@ const App: React.FC = () => {
         archiveList[index].isArchived = false;
         localStorage.setItem('grader_archives', JSON.stringify(archiveList));
         setArchives(archiveList);
+
+        if (user && isAllowed) {
+          saveUserSession(user.uid, archiveList[index]).catch(err => {
+            console.error("Firestore restore failure", err);
+          });
+        }
       }
     } catch (e) { console.error("Restore session failed", e); }
-  }, []);
+  }, [user, isAllowed]);
 
   const handleDeleteArchive = useCallback((e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -720,8 +783,14 @@ const App: React.FC = () => {
       localStorage.setItem('grader_archives', JSON.stringify(archiveList));
       setArchives(archiveList);
       if (currentSessionId === id) setCurrentSessionId(null);
+
+      if (user && isAllowed) {
+        deleteUserSession(user.uid, id).catch(err => {
+          console.error("Firestore delete failure", err);
+        });
+      }
     } catch (e) { console.error("削除エラー", e); }
-  }, [currentSessionId]);
+  }, [currentSessionId, user, isAllowed]);
 
   const handleRenameArchive = useCallback((e: React.MouseEvent, id: string, oldName: string) => {
     e.stopPropagation();
@@ -737,9 +806,15 @@ const App: React.FC = () => {
         localStorage.setItem('grader_archives', JSON.stringify(archiveList));
         setArchives(archiveList);
         if (currentSessionId === id) setSessionTitle(newName);
+
+        if (user && isAllowed) {
+          saveUserSession(user.uid, archiveList[index]).catch(err => {
+            console.error("Firestore rename failure", err);
+          });
+        }
       }
     } catch (e) { console.error("名称変更エラー", e); }
-  }, [currentSessionId]);
+  }, [currentSessionId, user, isAllowed]);
 
   const toggleSelection = (id: string) => {
     setSelectedIds(prev => {

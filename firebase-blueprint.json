@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "AllowedUser": {
+      "title": "AllowedUser",
+      "description": "Users allowed to access the system",
+      "type": "object",
+      "properties": {
+        "addedAt": {
+          "type": "string",
+          "description": "ISO date string when user was added"
+        },
+        "allowed": {
+          "type": "boolean",
+          "description": "Indicates whether user is allowed"
+        }
+      },
+      "required": ["addedAt", "allowed"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "An individual grading and class roster session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "name": { "type": "string" },
+        "results": { "type": "array" },
+        "questions": { "type": "array" },
+        "students": { "type": "array" },
+        "rawAnswers": { "type": "array" },
+        "isArchived": { "type": "boolean" },
+        "rangeSlots": { "type": "array" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "name", "results", "questions", "students", "rawAnswers"]
+    }
+  },
+  "firestore": {
+    "/allowed_users/{email}": {
+      "schema": "AllowedUser",
+      "description": "Whitelist collection of users allowed to sign in"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": "Session",
+      "description": "User-isolated grading sessions"
+    }
+  }
+}

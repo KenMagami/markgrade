@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     // Helper to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
@@ -14,18 +19,50 @@ service cloud.firestore {
       );
     }
 
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidAllowedUser(data) {
+      return data.keys().hasAll(['addedAt', 'allowed']) 
+        && data.keys().size() == 2
+        && data.addedAt is string
+        && data.allowed is bool;
+    }
+
+    function isValidSession(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 500
+        && data.timestamp is string && data.timestamp.size() <= 128
+        && data.results is list
+        && data.questions is list
+        && data.students is list
+        && data.rawAnswers is list;
+    }
+
     // Allowed users collection rules
     match /allowed_users/{email} {
       // Any authenticated user can read their own allowed status doc
       allow get: if isAuthenticated() && request.auth.token.email.lower() == email.lower();
       
-      // Only already allowed users can list all emails, add or remove them
-      allow read, write: if isAllowedUser();
+      // Only already allowed users can list all emails
+      allow read: if isAllowedUser();
+
+      // Only super admin can add/remove allowed users
+      allow write: if isAuthenticated() 
+        && request.auth.token.email.lower() == 'kenmagami1003@gmail.com'
+        && isValidAllowedUser(request.resource.data);
     }
 
-    // Catch-all for other collections (e.g. sessions, settings, if any are added in the future)
-    match /{document=**} {
-      allow read, write: if isAllowedUser();
+    match /users/{userId} {
+      allow read, write: if false;
+
+      match /sessions/{sessionId} {
+        allow read, delete: if isAuthenticated() && isAllowedUser() && userId == request.auth.uid;
+        allow create, update: if isAuthenticated() && isAllowedUser() && userId == request.auth.uid 
+          && isValidId(sessionId)
+          && isValidSession(request.resource.data);
+      }
     }
   }
 }
